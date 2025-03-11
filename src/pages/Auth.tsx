@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Twitter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,27 +11,39 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [session, setSession] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
+    console.log("Auth page loaded, checking for session...");
+    
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Session check result:", session ? "Session found" : "No session");
       setSession(session);
       if (session) {
         // If logged in, redirect to dashboard
+        console.log("User is logged in, redirecting to dashboard");
         navigate('/dashboard');
       }
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        console.log("Auth state changed:", event, session ? "Session exists" : "No session");
         setSession(session);
         if (session) {
           // If logged in, redirect to dashboard
+          console.log("User is now logged in, redirecting to dashboard");
           navigate('/dashboard');
         }
       }
     );
+
+    // Check if we have hash parameters (OAuth callback)
+    if (window.location.hash) {
+      console.log("Detected hash parameters in URL - likely an OAuth callback");
+    }
 
     return () => subscription.unsubscribe();
   }, [navigate]);
@@ -39,18 +51,28 @@ const Auth = () => {
   const handleTwitterLogin = async () => {
     try {
       setLoading(true);
+      console.log("Initiating Twitter login...");
       
-      const { error } = await supabase.auth.signInWithOAuth({
+      // Get the current URL to use as redirect
+      const redirectTo = `${window.location.origin}/auth`;
+      console.log("Using redirect URL:", redirectTo);
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'twitter',
         options: {
-          redirectTo: `${window.location.origin}/auth`,
+          redirectTo: redirectTo,
+          skipBrowserRedirect: false, // Ensure browser is being redirected
         },
       });
       
       if (error) {
+        console.error("Twitter login error:", error);
         throw error;
       }
+      
+      console.log("Twitter login initiated successfully:", data);
     } catch (error: any) {
+      console.error("Login error:", error);
       toast({
         title: 'Error logging in',
         description: error.message || 'An error occurred during login',
@@ -86,6 +108,19 @@ const Auth = () => {
               By signing in, you agree to our Terms of Service and Privacy Policy.
             </div>
           </div>
+          
+          {/* Debug section - only visible in development */}
+          {import.meta.env.DEV && (
+            <div className="mt-8 p-4 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-xs">
+              <h3 className="font-semibold mb-2">Debug Info:</h3>
+              <div className="space-y-1">
+                <p>Current Origin: {window.location.origin}</p>
+                <p>Current Path: {location.pathname}</p>
+                <p>Has Hash Params: {window.location.hash ? 'Yes' : 'No'}</p>
+                <p>Is Session Active: {session ? 'Yes' : 'No'}</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Layout>

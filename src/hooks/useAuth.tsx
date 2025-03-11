@@ -28,39 +28,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    // Log the start of the auth check
+    console.log("AuthProvider: Initializing auth state check");
+    
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("AuthProvider: Initial session check:", session ? "Session found" : "No session");
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
+        console.log("AuthProvider: User found in session, fetching profile");
         fetchProfile(session.user.id);
       } else {
+        console.log("AuthProvider: No user in session");
         setIsLoading(false);
       }
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
+        console.log("AuthProvider: Auth state change event:", event);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          console.log("AuthProvider: User available after auth change, fetching profile");
           fetchProfile(session.user.id);
         } else {
+          console.log("AuthProvider: No user after auth change");
           setProfile(null);
           setIsLoading(false);
         }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log("AuthProvider: Cleaning up auth subscription");
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Fetch user profile from profiles table
   const fetchProfile = async (userId: string) => {
     try {
       setIsLoading(true);
+      console.log("AuthProvider: Fetching profile for user ID:", userId);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -68,12 +82,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
+        console.error("AuthProvider: Error fetching profile:", error);
       } else {
+        console.log("AuthProvider: Profile fetched successfully:", data);
         setProfile(data);
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error("AuthProvider: Exception when fetching profile:", error);
     } finally {
       setIsLoading(false);
     }
@@ -83,15 +98,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithTwitter = async () => {
     setIsLoading(true);
     try {
+      console.log("AuthProvider: Initiating Twitter sign-in");
+      const redirectTo = `${window.location.origin}/auth`;
+      console.log("AuthProvider: Using redirect URL:", redirectTo);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'twitter',
         options: {
-          redirectTo: `${window.location.origin}/auth`,
+          redirectTo: redirectTo,
         },
       });
-      if (error) throw error;
+      
+      if (error) {
+        console.error("AuthProvider: Twitter sign-in error:", error);
+        throw error;
+      }
+      
+      console.log("AuthProvider: Twitter sign-in initiated successfully");
     } catch (error) {
-      console.error('Error signing in with Twitter:', error);
+      console.error("AuthProvider: Sign-in error:", error);
       setIsLoading(false);
       throw error;
     }
@@ -101,10 +126,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     setIsLoading(true);
     try {
+      console.log("AuthProvider: Signing out");
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) {
+        console.error("AuthProvider: Sign-out error:", error);
+        throw error;
+      }
+      console.log("AuthProvider: Sign-out successful");
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error("AuthProvider: Sign-out exception:", error);
     } finally {
       setIsLoading(false);
     }
