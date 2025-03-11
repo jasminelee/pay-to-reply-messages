@@ -1,5 +1,4 @@
-
-import { ArrowRight, CheckCircle, DollarSign, MessageSquare, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CheckCircle, DollarSign, MessageSquare, ShieldCheck, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
@@ -7,8 +6,21 @@ import { Link } from 'react-router-dom';
 const Index = () => {
   return (
     <div className="min-h-[calc(100vh-8rem)] flex flex-col">
+      {/* Header Banner */}
+      <section className="bg-gradient-to-r from-blue-500/80 to-purple-600/80 py-4 mb-8 w-full">
+        <div className="container px-4 mx-auto flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Sparkles className="h-5 w-5 text-yellow-300 animate-pulse" />
+            <span className="text-white font-medium">Introducing Pay-to-Reply Messaging</span>
+          </div>
+          <div className="text-white/80 text-sm hidden md:block">
+            Powered by sonicSOL
+          </div>
+        </div>
+      </section>
+      
       {/* Hero Section */}
-      <section className="py-16 md:py-24 text-center">
+      <section className="py-12 md:py-16 text-center">
         <div className="container px-4 md:px-6">
           <div className="flex flex-col items-center space-y-4 text-center mb-12">
             <div className="inline-block animate-float">
