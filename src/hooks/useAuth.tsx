@@ -99,14 +99,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log("AuthProvider: Initiating Twitter sign-in");
       
-      // Use the fixed URL for production/preview environment
-      const redirectTo = 'https://preview--pay-to-reply-messages.lovable.app/auth';
-      console.log("AuthProvider: Using fixed redirect URL:", redirectTo);
-      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'twitter',
         options: {
-          redirectTo: redirectTo,
+          redirectTo: 'https://preview--pay-to-reply-messages.lovable.app/auth',
         },
       });
       

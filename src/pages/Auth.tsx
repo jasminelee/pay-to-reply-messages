@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Twitter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,17 +9,14 @@ import Layout from '@/components/Layout';
 
 const Auth = () => {
   const [loading, setLoading] = useState(false);
-  const [session, setSession] = useState(null);
   const navigate = useNavigate();
-  const location = useLocation();
-
+  
   useEffect(() => {
     console.log("Auth page loaded, checking for session...");
     
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log("Session check result:", session ? "Session found" : "No session");
-      setSession(session);
       if (session) {
         // If logged in, redirect to dashboard
         console.log("User is logged in, redirecting to dashboard");
@@ -31,7 +28,6 @@ const Auth = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log("Auth state changed:", event, session ? "Session exists" : "No session");
-        setSession(session);
         if (session) {
           // If logged in, redirect to dashboard
           console.log("User is now logged in, redirecting to dashboard");
@@ -48,14 +44,10 @@ const Auth = () => {
       setLoading(true);
       console.log("Initiating Twitter login...");
       
-      // Use simple approach with consistent URL
-      const redirectUrl = 'https://preview--pay-to-reply-messages.lovable.app/auth';
-      console.log("Using fixed redirect URL:", redirectUrl);
-      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'twitter',
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: 'https://preview--pay-to-reply-messages.lovable.app/auth',
         },
       });
       
@@ -108,15 +100,11 @@ const Auth = () => {
             </div>
           </div>
           
-          {/* Debug section - visible in all environments for troubleshooting */}
           <div className="mt-8 p-4 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-xs">
             <h3 className="font-semibold mb-2">Debug Info:</h3>
             <div className="space-y-1">
-              <p>Current Origin: {window.location.origin}</p>
-              <p>Current Path: {location.pathname}</p>
-              <p>Fixed Redirect URL: https://preview--pay-to-reply-messages.lovable.app/auth</p>
-              <p>Has Hash Params: {window.location.hash ? 'Yes' : 'No'}</p>
-              <p>Is Session Active: {session ? 'Yes' : 'No'}</p>
+              <p>Current URL: {window.location.href}</p>
+              <p>Redirect URL: https://preview--pay-to-reply-messages.lovable.app/auth</p>
             </div>
           </div>
         </div>
