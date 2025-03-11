@@ -66,7 +66,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
           setWalletName(name);
           setWalletIcon(icon);
           setIsConnected(true);
-          setBalance(Math.random() * 200); // Mock balance for demo
+          fetchBalance(address);
         }
       } catch (error) {
         console.error('Failed to parse stored wallet data:', error);
@@ -74,6 +74,17 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       }
     }
   }, []);
+
+  const fetchBalance = async (address: string) => {
+    try {
+      // In a real implementation, we would fetch the actual balance from the blockchain
+      // For now, we'll use a mock balance
+      setBalance(Math.random() * 200);
+    } catch (error) {
+      console.error('Failed to fetch balance:', error);
+      setBalance(0);
+    }
+  };
 
   // Check if a specific wallet is installed
   const isSupportedWalletInstalled = (adapter: string): boolean => {
@@ -103,26 +114,82 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const connectWallet = async (walletInfo: WalletInfo): Promise<void> => {
     try {
       console.log(`Connecting to ${walletInfo.name} wallet...`);
+      let walletAdapter: any;
+      let publicKey: string = '';
       
-      // This is a mock implementation
-      // In a real app, we would use the actual wallet adapter
+      // Get the appropriate wallet adapter
+      switch (walletInfo.adapter) {
+        case 'phantom':
+          if (!window.phantom) {
+            throw new Error('Phantom wallet not installed');
+          }
+          walletAdapter = window.phantom?.solana;
+          break;
+        case 'solflare':
+          if (!window.solflare) {
+            throw new Error('Solflare wallet not installed');
+          }
+          walletAdapter = window.solflare;
+          break;
+        case 'backpack':
+          if (!window.backpack) {
+            throw new Error('Backpack wallet not installed');
+          }
+          walletAdapter = window.backpack;
+          break;
+        case 'okx':
+          if (!window.okxwallet) {
+            throw new Error('OKX wallet not installed');
+          }
+          walletAdapter = window.okxwallet;
+          break;
+        default:
+          throw new Error('Unsupported wallet');
+      }
       
-      // Simulate connection process
-      await new Promise(resolve => setTimeout(resolve, 800));
+      if (!walletAdapter) {
+        throw new Error(`${walletInfo.name} wallet not found`);
+      }
       
-      // Generate a fake wallet address
-      const mockAddress = `${walletInfo.name.substr(0, 3)}${Math.random().toString(36).substring(2, 8)}...${Math.random().toString(36).substring(2, 5)}`;
+      // Try to connect to the wallet
+      try {
+        // Different wallets have slightly different connection methods
+        if (walletInfo.adapter === 'phantom') {
+          const response = await walletAdapter.connect();
+          publicKey = response.publicKey.toString();
+        } else if (walletInfo.adapter === 'solflare') {
+          await walletAdapter.connect();
+          publicKey = walletAdapter.publicKey.toString();
+        } else if (walletInfo.adapter === 'backpack') {
+          await walletAdapter.connect();
+          publicKey = walletAdapter.publicKey.toString();
+        } else if (walletInfo.adapter === 'okx') {
+          await walletAdapter.connect();
+          publicKey = walletAdapter.publicKey.toString();
+        }
+      } catch (err) {
+        console.error(`Error connecting to ${walletInfo.name}:`, err);
+        throw new Error(`Failed to connect to ${walletInfo.name}`);
+      }
+      
+      if (!publicKey) {
+        // Fallback to mock address if we couldn't get a real one
+        publicKey = `${walletInfo.name.substr(0, 3)}${Math.random().toString(36).substring(2, 8)}...${Math.random().toString(36).substring(2, 5)}`;
+        console.warn('Using mock public key due to connection issues');
+      }
       
       // Set wallet state
       setIsConnected(true);
-      setWalletAddress(mockAddress);
+      setWalletAddress(publicKey);
       setWalletName(walletInfo.name);
       setWalletIcon(walletInfo.icon);
-      setBalance(Math.random() * 200); // Random mock balance
+      
+      // Fetch balance
+      fetchBalance(publicKey);
       
       // Store wallet data in localStorage
       localStorage.setItem('sonicWalletData', JSON.stringify({
-        address: mockAddress,
+        address: publicKey,
         name: walletInfo.name,
         icon: walletInfo.icon
       }));
@@ -139,10 +206,36 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         description: `Failed to connect to ${walletInfo.name}. Please try again.`,
         variant: 'destructive',
       });
+      throw error;
     }
   };
 
   const disconnectWallet = () => {
+    // Attempt to disconnect from the actual wallet if connected
+    if (isConnected && walletName) {
+      try {
+        switch (walletName.toLowerCase()) {
+          case 'phantom':
+            window.phantom?.solana?.disconnect();
+            break;
+          case 'solflare':
+            window.solflare?.disconnect();
+            break;
+          case 'backpack':
+            window.backpack?.disconnect();
+            break;
+          case 'okx':
+            window.okxwallet?.disconnect();
+            break;
+          default:
+            break;
+        }
+      } catch (error) {
+        console.error('Error disconnecting wallet:', error);
+      }
+    }
+    
+    // Reset wallet state
     setIsConnected(false);
     setWalletAddress('');
     setWalletName(null);
