@@ -9,13 +9,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from '@/components/ui/use-toast';
-import { currentUser } from '@/utils/mockData';
+import { useAuth } from '@/hooks/useAuth';
 
 const WalletConnect = () => {
-  const [isConnected, setIsConnected] = useState(currentUser.isConnected || false);
+  const { user } = useAuth();
+  const [isConnected, setIsConnected] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const walletAddress = currentUser.walletAddress || '';
+  const [walletAddress, setWalletAddress] = useState('');
 
   const truncateAddress = (address: string) => {
     if (!address) return '';
@@ -23,7 +24,9 @@ const WalletConnect = () => {
   };
 
   const connectWallet = () => {
+    // In a real implementation, this would connect to a blockchain wallet
     setIsConnected(true);
+    setWalletAddress('7eG...4xP'); // Mocked wallet address
     toast({
       title: 'Wallet Connected',
       description: 'Your wallet has been successfully connected.',
@@ -32,6 +35,7 @@ const WalletConnect = () => {
 
   const disconnectWallet = () => {
     setIsConnected(false);
+    setWalletAddress('');
     toast({
       title: 'Wallet Disconnected',
       description: 'Your wallet has been disconnected.',
@@ -53,6 +57,11 @@ const WalletConnect = () => {
   const toggleExpanded = () => {
     setIsExpanded(!isExpanded);
   };
+
+  // If user is not authenticated, don't show wallet connect button
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="relative group">

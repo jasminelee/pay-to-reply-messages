@@ -14,7 +14,7 @@ const Compose = () => {
   };
 
   return (
-    <Layout>
+    <Layout requireAuth={true}>
       <div className="flex flex-col space-y-8 animate-fade-in">
         <div className="flex flex-col space-y-4">
           <h1 className="text-3xl font-bold tracking-tight">Compose Message</h1>
