@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Clock, MessageSquare, Repeat, Wallet } from 'lucide-react';
@@ -10,8 +9,10 @@ import Layout from '@/components/Layout';
 import MessageCard from '@/components/MessageCard';
 import TransactionHistory from '@/components/TransactionHistory';
 import { currentUser, getMessagesByUser, formatAmount, messages } from '@/utils/mockData';
+import { useWallet } from '@/contexts/WalletContext';
 
 const Dashboard = () => {
+  const { balance, walletAddress, isConnected } = useWallet();
   const sentMessages = getMessagesByUser(currentUser.id, 'sent');
   const receivedMessages = getMessagesByUser(currentUser.id, 'received');
   
@@ -188,7 +189,7 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Address</p>
-                    <p className="text-xs text-muted-foreground">{currentUser.walletAddress}</p>
+                    <p className="text-xs text-muted-foreground">{isConnected ? walletAddress : currentUser.walletAddress}</p>
                   </div>
                   <div className="h-2 w-2 rounded-full bg-green-500" />
                 </div>
@@ -196,7 +197,7 @@ const Dashboard = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between">
                     <p className="text-sm">Balance</p>
-                    <p className="text-sm font-medium">125.00 sonicSOL</p>
+                    <p className="text-sm font-medium">{isConnected ? balance.toFixed(2) : "0.00"} sonicSOL</p>
                   </div>
                   <div className="flex justify-between">
                     <p className="text-sm">Pending</p>
