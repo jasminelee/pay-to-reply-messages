@@ -28,7 +28,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    // Log the start of the auth check
     console.log("AuthProvider: Initializing auth state check");
     
     // Get initial session
@@ -99,8 +98,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       console.log("AuthProvider: Initiating Twitter sign-in");
-      const redirectTo = `${window.location.origin}/auth`;
-      console.log("AuthProvider: Using redirect URL:", redirectTo);
+      
+      // Use the fixed URL for production/preview environment
+      const redirectTo = 'https://preview--pay-to-reply-messages.lovable.app/auth';
+      console.log("AuthProvider: Using fixed redirect URL:", redirectTo);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'twitter',

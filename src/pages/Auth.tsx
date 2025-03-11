@@ -40,11 +40,6 @@ const Auth = () => {
       }
     );
 
-    // Check if we have hash parameters (OAuth callback)
-    if (window.location.hash) {
-      console.log("Detected hash parameters in URL - likely an OAuth callback");
-    }
-
     return () => subscription.unsubscribe();
   }, [navigate]);
 
@@ -53,25 +48,14 @@ const Auth = () => {
       setLoading(true);
       console.log("Initiating Twitter login...");
       
-      // Determine if we're in local development or production environment
-      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      // Use simple approach with consistent URL
+      const redirectUrl = 'https://preview--pay-to-reply-messages.lovable.app/auth';
+      console.log("Using fixed redirect URL:", redirectUrl);
       
-      // Use explicit redirectTo for both environments
-      let redirectTo;
-      if (isLocalhost) {
-        // For local development
-        redirectTo = `${window.location.origin}/auth`;
-        console.log("Local environment detected, using redirect URL:", redirectTo);
-      } else {
-        // For production/preview environment
-        redirectTo = "https://preview--pay-to-reply-messages.lovable.app/auth";
-        console.log("Production environment detected, using redirect URL:", redirectTo);
-      }
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'twitter',
         options: {
-          redirectTo: redirectTo,
+          redirectTo: redirectUrl,
         },
       });
       
@@ -85,8 +69,8 @@ const Auth = () => {
         throw error;
       }
       
-      console.log("Twitter login initiated successfully:", data);
-    } catch (error: any) {
+      console.log("Twitter login initiated successfully");
+    } catch (error) {
       console.error("Login error:", error);
       toast({
         title: 'Error logging in',
@@ -130,10 +114,7 @@ const Auth = () => {
             <div className="space-y-1">
               <p>Current Origin: {window.location.origin}</p>
               <p>Current Path: {location.pathname}</p>
-              <p>Environment: {window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'Local Development' : 'Production/Preview'}</p>
-              <p>Redirect URL: {window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-                ? `${window.location.origin}/auth` 
-                : "https://preview--pay-to-reply-messages.lovable.app/auth"}</p>
+              <p>Fixed Redirect URL: https://preview--pay-to-reply-messages.lovable.app/auth</p>
               <p>Has Hash Params: {window.location.hash ? 'Yes' : 'No'}</p>
               <p>Is Session Active: {session ? 'Yes' : 'No'}</p>
             </div>
