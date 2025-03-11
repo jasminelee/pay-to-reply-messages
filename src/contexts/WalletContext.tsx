@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from '@/components/ui/use-toast';
 
@@ -53,14 +52,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [walletIcon, setWalletIcon] = useState<string | null>(null);
   const [balance, setBalance] = useState<number>(0);
 
-  // Check if wallet connected on initialization (e.g. through localStorage)
   useEffect(() => {
     const storedWalletData = localStorage.getItem('sonicWalletData');
     
     if (storedWalletData) {
       try {
         const { address, name, icon } = JSON.parse(storedWalletData);
-        // Only restore if all required data is present
         if (address && name && icon) {
           setWalletAddress(address);
           setWalletName(name);
@@ -77,8 +74,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchBalance = async (address: string) => {
     try {
-      // In a real implementation, we would fetch the actual balance from the blockchain
-      // For now, we'll use a mock balance
       setBalance(Math.random() * 200);
     } catch (error) {
       console.error('Failed to fetch balance:', error);
@@ -86,24 +81,19 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Check if a specific wallet is installed
   const isSupportedWalletInstalled = (adapter: string): boolean => {
-    // For Phantom
     if (adapter === 'phantom' && window.phantom) {
       return true;
     }
     
-    // For Solflare
     if (adapter === 'solflare' && window.solflare) {
       return true;
     }
     
-    // For Backpack
     if (adapter === 'backpack' && window.backpack) {
       return true;
     }
     
-    // For OKX
     if (adapter === 'okx' && window.okxwallet) {
       return true;
     }
@@ -117,7 +107,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       let walletAdapter: any;
       let publicKey: string = '';
       
-      // Get the appropriate wallet adapter
       switch (walletInfo.adapter) {
         case 'phantom':
           if (!window.phantom) {
@@ -151,9 +140,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         throw new Error(`${walletInfo.name} wallet not found`);
       }
       
-      // Try to connect to the wallet
       try {
-        // Different wallets have slightly different connection methods
         if (walletInfo.adapter === 'phantom') {
           const response = await walletAdapter.connect();
           publicKey = response.publicKey.toString();
@@ -173,21 +160,17 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       }
       
       if (!publicKey) {
-        // Fallback to mock address if we couldn't get a real one
         publicKey = `${walletInfo.name.substr(0, 3)}${Math.random().toString(36).substring(2, 8)}...${Math.random().toString(36).substring(2, 5)}`;
         console.warn('Using mock public key due to connection issues');
       }
       
-      // Set wallet state
       setIsConnected(true);
       setWalletAddress(publicKey);
       setWalletName(walletInfo.name);
       setWalletIcon(walletInfo.icon);
       
-      // Fetch balance
       fetchBalance(publicKey);
       
-      // Store wallet data in localStorage
       localStorage.setItem('sonicWalletData', JSON.stringify({
         address: publicKey,
         name: walletInfo.name,
@@ -211,7 +194,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const disconnectWallet = () => {
-    // Attempt to disconnect from the actual wallet if connected
     if (isConnected && walletName) {
       try {
         switch (walletName.toLowerCase()) {
@@ -225,7 +207,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
             window.backpack?.disconnect();
             break;
           case 'okx':
-            window.okxwallet?.disconnect();
+            window.okxwallet?.solana?.disconnect();
             break;
           default:
             break;
@@ -235,14 +217,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     
-    // Reset wallet state
     setIsConnected(false);
     setWalletAddress('');
     setWalletName(null);
     setWalletIcon(null);
     setBalance(0);
     
-    // Remove stored wallet data
     localStorage.removeItem('sonicWalletData');
     
     toast({
@@ -251,7 +231,6 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  // Create context value
   const value = {
     isConnected,
     walletAddress,

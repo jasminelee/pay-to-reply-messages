@@ -24,9 +24,11 @@ interface BackpackProvider {
 
 interface OKXProvider {
   isOKXWallet?: boolean;
-  connect: () => Promise<void>;
-  disconnect: () => Promise<void>;
-  publicKey?: { toString: () => string };
+  solana?: {
+    connect: () => Promise<void>;
+    disconnect: () => Promise<void>;
+    publicKey?: { toString: () => string };
+  };
 }
 
 declare global {
