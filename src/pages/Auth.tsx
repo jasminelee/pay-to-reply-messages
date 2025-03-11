@@ -53,10 +53,20 @@ const Auth = () => {
       setLoading(true);
       console.log("Initiating Twitter login...");
       
-      // Get the current URL to use as redirect - ensure it ends with /auth
-      const currentOrigin = window.location.origin;
-      const redirectTo = `${currentOrigin}/auth`;
-      console.log("Using redirect URL:", redirectTo);
+      // Determine if we're in local development or production environment
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      
+      // Use explicit redirectTo for both environments
+      let redirectTo;
+      if (isLocalhost) {
+        // For local development
+        redirectTo = `${window.location.origin}/auth`;
+        console.log("Local environment detected, using redirect URL:", redirectTo);
+      } else {
+        // For production/preview environment
+        redirectTo = "https://preview--pay-to-reply-messages.lovable.app/auth";
+        console.log("Production environment detected, using redirect URL:", redirectTo);
+      }
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'twitter',
@@ -120,7 +130,10 @@ const Auth = () => {
             <div className="space-y-1">
               <p>Current Origin: {window.location.origin}</p>
               <p>Current Path: {location.pathname}</p>
-              <p>Redirect URL: {`${window.location.origin}/auth`}</p>
+              <p>Environment: {window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'Local Development' : 'Production/Preview'}</p>
+              <p>Redirect URL: {window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+                ? `${window.location.origin}/auth` 
+                : "https://preview--pay-to-reply-messages.lovable.app/auth"}</p>
               <p>Has Hash Params: {window.location.hash ? 'Yes' : 'No'}</p>
               <p>Is Session Active: {session ? 'Yes' : 'No'}</p>
             </div>
