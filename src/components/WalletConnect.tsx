@@ -68,10 +68,7 @@ const WalletConnect = () => {
     closeWalletDialog();
   };
 
-  // If user is not authenticated, don't show wallet connect button
-  if (!user) {
-    return null;
-  }
+  // Removed the conditional check that was hiding the wallet button when user is not authenticated
 
   return (
     <div className="relative group">
