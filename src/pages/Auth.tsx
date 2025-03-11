@@ -53,20 +53,25 @@ const Auth = () => {
       setLoading(true);
       console.log("Initiating Twitter login...");
       
-      // Get the current URL to use as redirect
-      const redirectTo = `${window.location.origin}/auth`;
+      // Get the current URL to use as redirect - ensure it ends with /auth
+      const currentOrigin = window.location.origin;
+      const redirectTo = `${currentOrigin}/auth`;
       console.log("Using redirect URL:", redirectTo);
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'twitter',
         options: {
           redirectTo: redirectTo,
-          skipBrowserRedirect: false, // Ensure browser is being redirected
         },
       });
       
       if (error) {
         console.error("Twitter login error:", error);
+        toast({
+          title: 'Error logging in',
+          description: error.message || 'An error occurred during login',
+          variant: 'destructive',
+        });
         throw error;
       }
       
@@ -109,18 +114,17 @@ const Auth = () => {
             </div>
           </div>
           
-          {/* Debug section - only visible in development */}
-          {import.meta.env.DEV && (
-            <div className="mt-8 p-4 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-xs">
-              <h3 className="font-semibold mb-2">Debug Info:</h3>
-              <div className="space-y-1">
-                <p>Current Origin: {window.location.origin}</p>
-                <p>Current Path: {location.pathname}</p>
-                <p>Has Hash Params: {window.location.hash ? 'Yes' : 'No'}</p>
-                <p>Is Session Active: {session ? 'Yes' : 'No'}</p>
-              </div>
+          {/* Debug section - visible in all environments for troubleshooting */}
+          <div className="mt-8 p-4 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-xs">
+            <h3 className="font-semibold mb-2">Debug Info:</h3>
+            <div className="space-y-1">
+              <p>Current Origin: {window.location.origin}</p>
+              <p>Current Path: {location.pathname}</p>
+              <p>Redirect URL: {`${window.location.origin}/auth`}</p>
+              <p>Has Hash Params: {window.location.hash ? 'Yes' : 'No'}</p>
+              <p>Is Session Active: {session ? 'Yes' : 'No'}</p>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </Layout>
