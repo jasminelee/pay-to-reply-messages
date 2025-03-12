@@ -1,6 +1,5 @@
-
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, checkSupabaseConnection, checkTwitterAuthConfig } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
 
 interface Profile {
@@ -28,18 +27,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    console.log("AuthProvider: Initializing auth state check");
     
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log("AuthProvider: Initial session check:", session ? "Session found" : "No session");
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        console.log("AuthProvider: User found in session, fetching profile");
         fetchProfile(session.user.id);
       } else {
-        console.log("AuthProvider: No user in session");
         setIsLoading(false);
       }
     });
@@ -47,15 +42,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log("AuthProvider: Auth state change event:", event);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          console.log("AuthProvider: User available after auth change, fetching profile");
           fetchProfile(session.user.id);
         } else {
-          console.log("AuthProvider: No user after auth change");
           setProfile(null);
           setIsLoading(false);
         }
@@ -63,7 +55,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     return () => {
-      console.log("AuthProvider: Cleaning up auth subscription");
       subscription.unsubscribe();
     };
   }, []);
@@ -72,7 +63,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchProfile = async (userId: string) => {
     try {
       setIsLoading(true);
-      console.log("AuthProvider: Fetching profile for user ID:", userId);
       
       const { data, error } = await supabase
         .from('profiles')
@@ -83,7 +73,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (error) {
         console.error("AuthProvider: Error fetching profile:", error);
       } else {
-        console.log("AuthProvider: Profile fetched successfully:", data);
         setProfile(data);
       }
     } catch (error) {
@@ -97,12 +86,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signInWithTwitter = async () => {
     setIsLoading(true);
     try {
-      console.log("AuthProvider: Initiating Twitter sign-in");
+      // Use the correct redirect URL based on the current origin
+      const redirectTo = `${window.location.origin}/auth`;
       
-      const { error } = await supabase.auth.signInWithOAuth({
+      // Simple Twitter OAuth flow
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'twitter',
         options: {
-          redirectTo: 'https://preview--pay-to-reply-messages.lovable.app/auth',
+          redirectTo,
         },
       });
       
@@ -111,7 +102,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
       
-      console.log("AuthProvider: Twitter sign-in initiated successfully");
+      
     } catch (error) {
       console.error("AuthProvider: Sign-in error:", error);
       setIsLoading(false);
@@ -123,13 +114,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     setIsLoading(true);
     try {
-      console.log("AuthProvider: Signing out");
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error("AuthProvider: Sign-out error:", error);
         throw error;
       }
-      console.log("AuthProvider: Sign-out successful");
     } catch (error) {
       console.error("AuthProvider: Sign-out exception:", error);
     } finally {
