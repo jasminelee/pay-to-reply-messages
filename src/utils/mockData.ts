@@ -1,4 +1,3 @@
-
 // Mock user data
 export interface User {
   id: string;
@@ -102,7 +101,7 @@ export const messages: Message[] = [
     recipientId: 'user-1',
     recipientUsername: 'cryptouser',
     content: 'I\'ve been following your work on Solana and I think you might be interested in a new project I\'m working on. Let\'s connect!',
-    paymentAmount: .0000042,
+    paymentAmount: .000042,
     status: 'pending',
     timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
     transactionId: 'tx-2',
@@ -130,7 +129,7 @@ export const messages: Message[] = [
     recipientId: 'user-1',
     recipientUsername: 'cryptouser',
     content: 'Hi there! I\'ve created some artwork inspired by the Sonic ecosystem and I thought you might be interested in collaborating on an NFT project.',
-    paymentAmount: 0.00034,
+    paymentAmount: 0.0034,
     status: 'rejected',
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
     transactionId: 'tx-4',
@@ -144,7 +143,7 @@ export const messages: Message[] = [
     recipientId: 'user-2',
     recipientUsername: 'sonicfan',
     content: 'Hey Sonic Fan, I have some ideas about the sonic token ecosystem I\'d like to share with you. Would love to chat!',
-    paymentAmount: 0.00000006,
+    paymentAmount: 0.006,
     status: 'pending',
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 1).toISOString(), // 1 hour ago
     transactionId: 'tx-5',
@@ -158,7 +157,7 @@ export const transactions: Transaction[] = [
     messageId: 'msg-1',
     senderId: 'user-2',
     recipientId: 'user-1',
-    amount: 5,
+    amount: 0.005,
     status: 'pending',
     type: 'receive',
     timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(), // 10 minutes ago
@@ -168,7 +167,7 @@ export const transactions: Transaction[] = [
     messageId: 'msg-2',
     senderId: 'user-3',
     recipientId: 'user-1',
-    amount: 10,
+    amount: 0.000042,
     status: 'pending',
     type: 'receive',
     timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
@@ -178,7 +177,7 @@ export const transactions: Transaction[] = [
     messageId: 'msg-3',
     senderId: 'user-4',
     recipientId: 'user-1',
-    amount: 15,
+    amount: 0.0011,
     status: 'completed',
     type: 'receive',
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
@@ -188,7 +187,7 @@ export const transactions: Transaction[] = [
     messageId: 'msg-4',
     senderId: 'user-5',
     recipientId: 'user-1',
-    amount: 7.5,
+    amount: 0.0034,
     status: 'refunded',
     type: 'refund',
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
@@ -198,7 +197,7 @@ export const transactions: Transaction[] = [
     messageId: 'msg-5',
     senderId: 'user-1',
     recipientId: 'user-2',
-    amount: 12,
+    amount: 0.006,
     status: 'pending',
     type: 'send',
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 1).toISOString(), // 1 hour ago
@@ -221,7 +220,11 @@ export const getTransactionsByUser = (userId: string) => {
 };
 
 export const formatAmount = (amount: number) => {
-  return `${amount.toFixed(6)} SOL`;
+  // Convert to string with 8 decimal places
+  const amountStr = amount.toFixed(8);
+  // Remove trailing zeros after decimal point while keeping at least one digit after decimal
+  const trimmedStr = amountStr.replace(/(\.\d*[1-9])0+$|\.0+$/, '$1');
+  return `${trimmedStr} SOL`;
 };
 
 export const formatDate = (dateString: string) => {
