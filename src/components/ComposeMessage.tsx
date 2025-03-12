@@ -1,4 +1,3 @@
-
 import { useState, FormEvent } from 'react';
 import { AtSign, Send, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,7 +23,7 @@ interface ComposeMessageProps {
 const ComposeMessage = ({ onSuccess }: ComposeMessageProps) => {
   const [recipient, setRecipient] = useState('');
   const [message, setMessage] = useState('');
-  const [amount, setAmount] = useState(5);
+  const [amount, setAmount] = useState(0.5);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = (e: FormEvent) => {
@@ -60,7 +59,7 @@ const ComposeMessage = ({ onSuccess }: ComposeMessageProps) => {
       setIsSubmitting(false);
       setRecipient('');
       setMessage('');
-      setAmount(5);
+      setAmount(0.5);
       
       if (onSuccess) {
         onSuccess();
@@ -118,16 +117,16 @@ const ComposeMessage = ({ onSuccess }: ComposeMessageProps) => {
               <Label htmlFor="amount">Payment Amount ({formatAmount(amount)})</Label>
               <Slider
                 id="amount"
-                min={1}
-                max={50}
-                step={0.5}
+                min={0}
+                max={1}
+                step={0.001}
                 value={[amount]}
                 onValueChange={(values) => setAmount(values[0])}
               />
             </div>
             <div className="flex justify-between text-sm text-muted-foreground">
+              <span>{formatAmount(0)}</span>
               <span>{formatAmount(1)}</span>
-              <span>{formatAmount(50)}</span>
             </div>
           </div>
         </CardContent>
