@@ -88,7 +88,7 @@ const WalletConnect = () => {
           <DropdownMenuContent align="end" className="w-48 neo-glass animate-scale-in">
             <div className="p-2 border-b border-white/5">
               <div className="text-xs font-medium text-muted-foreground mb-1">Balance</div>
-              <div className="font-medium web3-gradient-text">{balance.toFixed(2)} sonicSOL</div>
+              <div className="font-medium web3-gradient-text">{balance.toFixed(2)} SOL</div>
             </div>
             <DropdownMenuItem onClick={copyAddress} className="cursor-pointer hover:bg-accent/5">
               {isCopied ? (
@@ -121,7 +121,7 @@ const WalletConnect = () => {
           <DialogHeader>
             <DialogTitle className="web3-gradient-text">Connect Wallet</DialogTitle>
             <DialogDescription>
-              Select a wallet to connect to sonicSOL
+              Select a wallet to connect
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-4 py-4">

@@ -55,6 +55,7 @@ export const users: User[] = [
     username: 'sonicfan',
     displayName: 'Sonic Fan',
     avatarUrl: 'https://i.pravatar.cc/150?img=2',
+    walletAddress: 'YpKSaahsrmwNnpY4b2mBKfiBFdaw5Lt4WL1EvZ5ThzZ',
   },
   {
     id: 'user-3',
@@ -87,7 +88,7 @@ export const messages: Message[] = [
     recipientId: 'user-1',
     recipientUsername: 'cryptouser',
     content: 'Hey! I saw your post about the new sonic token. I\'d love to discuss some potential collaboration opportunities with you.',
-    paymentAmount: 5,
+    paymentAmount: 0.005,
     status: 'pending',
     timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(), // 10 minutes ago
     transactionId: 'tx-1',
@@ -101,7 +102,7 @@ export const messages: Message[] = [
     recipientId: 'user-1',
     recipientUsername: 'cryptouser',
     content: 'I\'ve been following your work on Solana and I think you might be interested in a new project I\'m working on. Let\'s connect!',
-    paymentAmount: 10,
+    paymentAmount: .0000042,
     status: 'pending',
     timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
     transactionId: 'tx-2',
@@ -115,7 +116,7 @@ export const messages: Message[] = [
     recipientId: 'user-1',
     recipientUsername: 'cryptouser',
     content: 'Hello! I\'m organizing a hackathon focused on Solana and Sonic projects. Would you be interested in being a judge or mentor?',
-    paymentAmount: 15,
+    paymentAmount: 0.0011,
     status: 'approved',
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
     transactionId: 'tx-3',
@@ -129,7 +130,7 @@ export const messages: Message[] = [
     recipientId: 'user-1',
     recipientUsername: 'cryptouser',
     content: 'Hi there! I\'ve created some artwork inspired by the Sonic ecosystem and I thought you might be interested in collaborating on an NFT project.',
-    paymentAmount: 7.5,
+    paymentAmount: 0.00034,
     status: 'rejected',
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
     transactionId: 'tx-4',
@@ -143,7 +144,7 @@ export const messages: Message[] = [
     recipientId: 'user-2',
     recipientUsername: 'sonicfan',
     content: 'Hey Sonic Fan, I have some ideas about the sonic token ecosystem I\'d like to share with you. Would love to chat!',
-    paymentAmount: 12,
+    paymentAmount: 0.00000006,
     status: 'pending',
     timestamp: new Date(Date.now() - 1000 * 60 * 60 * 1).toISOString(), // 1 hour ago
     transactionId: 'tx-5',
@@ -220,7 +221,7 @@ export const getTransactionsByUser = (userId: string) => {
 };
 
 export const formatAmount = (amount: number) => {
-  return `${amount.toFixed(2)} sonicSOL`;
+  return `${amount.toFixed(6)} SOL`;
 };
 
 export const formatDate = (dateString: string) => {

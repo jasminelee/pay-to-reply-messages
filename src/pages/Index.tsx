@@ -15,7 +15,7 @@ const Index = () => {
             <span className="text-white font-medium">Introducing Pay-to-Reply Messaging</span>
           </div>
           <div className="text-white/80 text-sm hidden md:block">
-            Powered by sonicSOL
+            Powered by Sonic.game
           </div>
         </div>
       </section>
@@ -60,7 +60,7 @@ const Index = () => {
                 </div>
                 <CardTitle>Cryptocurrency Backed</CardTitle>
                 <CardDescription>
-                  Send messages with sonicSOL payments attached
+                  Send messages with SOL payments attached
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -127,7 +127,7 @@ const Index = () => {
               </div>
               <h3 className="text-lg font-medium mb-2">Connect Wallet</h3>
               <p className="text-sm text-muted-foreground">
-                Connect your sonicSOL compatible wallet to get started with secure transactions.
+                Connect your Sonic compatible wallet to get started with secure transactions.
               </p>
             </div>
             

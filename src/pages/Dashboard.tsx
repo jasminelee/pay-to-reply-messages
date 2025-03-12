@@ -221,7 +221,7 @@ const Dashboard = () => {
                       <Shield className="h-4 w-4 text-accent mr-2" />
                       Pending
                     </p>
-                    <p className="text-sm font-medium">12.00 <span className="text-accent">sonicSOL</span></p>
+                    <p className="text-sm font-medium">12.00 <span className="text-accent">SOL</span></p>
                   </div>
                 </div>
               </CardContent>
