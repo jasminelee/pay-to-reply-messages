@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Clock, MessageSquare, Repeat, Wallet, Zap, Shield, ChevronRight } from 'lucide-react';
@@ -9,13 +8,20 @@ import { Separator } from '@/components/ui/separator';
 import Layout from '@/components/Layout';
 import MessageCard from '@/components/MessageCard';
 import TransactionHistory from '@/components/TransactionHistory';
-import { currentUser, getMessagesByUser, formatAmount, messages } from '@/utils/mockData';
+import { getMessagesByUser, formatAmount, messages } from '@/utils/mockData';
 import { useWallet } from '@/contexts/WalletContext';
+import { useAuth } from '@/hooks/useAuth';
 
 const Dashboard = () => {
   const { balance, walletAddress, isConnected } = useWallet();
-  const sentMessages = getMessagesByUser(currentUser.id, 'sent');
-  const receivedMessages = getMessagesByUser(currentUser.id, 'received');
+  const { user, profile } = useAuth();
+  
+  // Always use the mock user ID for data display purposes
+  // This ensures we always have data to show in the dashboard
+  const mockUserId = 'user-1';
+  
+  const sentMessages = getMessagesByUser(mockUserId, 'sent');
+  const receivedMessages = getMessagesByUser(mockUserId, 'received');
   
   // Calculate stats
   const pendingReceived = receivedMessages.filter(msg => msg.status === 'pending').length;
@@ -41,7 +47,7 @@ const Dashboard = () => {
         <div className="flex flex-col space-y-4">
           <h1 className="text-3xl font-bold tracking-tight web3-gradient-text">Dashboard</h1>
           <p className="text-muted-foreground">
-            Welcome back, {currentUser.displayName}! Here's an overview of your messaging activity.
+            Welcome back, {profile?.twitter_username ? `@${profile.twitter_username}` : profile?.username || 'User'}! Here's an overview of your messaging activity.
           </p>
         </div>
         
@@ -151,7 +157,7 @@ const Dashboard = () => {
                 </CardHeader>
                 <CardContent className="pt-6">
                   <TabsContent value="all" className="m-0">
-                    <TransactionHistory userId={currentUser.id} limit={5} />
+                    <TransactionHistory userId={mockUserId} limit={5} />
                   </TabsContent>
                   <TabsContent value="sent" className="m-0">
                     <div className="text-center text-muted-foreground py-8 bg-card/30 rounded-lg border border-white/5">
@@ -203,9 +209,9 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Address</p>
-                    <p className="text-xs text-muted-foreground font-mono">{isConnected ? walletAddress : currentUser.walletAddress}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{isConnected ? walletAddress : "Not connected"}</p>
                   </div>
-                  <div className="h-3 w-3 rounded-full bg-green-500 shadow-[0_0_10px_rgba(74,222,128,0.5)]" />
+                  <div className={`h-3 w-3 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_10px_rgba(74,222,128,0.5)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'}`} />
                 </div>
                 <Separator className="my-4 bg-white/5" />
                 <div className="space-y-4">
