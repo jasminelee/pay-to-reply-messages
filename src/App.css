@@ -1,7 +1,7 @@
+
 #root {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
   text-align: center;
 }
 
@@ -12,10 +12,10 @@
   transition: filter 300ms;
 }
 .logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+  filter: drop-shadow(0 0 2em rgba(139, 92, 246, 0.6));
 }
 .logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+  filter: drop-shadow(0 0 2em rgba(139, 92, 246, 0.6));
 }
 
 @keyframes logo-spin {
@@ -39,4 +39,36 @@
 
 .read-the-docs {
   color: #888;
+}
+
+/* Web3 Specific Styles */
+.web3-gradient-text {
+  background: linear-gradient(90deg, #9b87f5 0%, #8a5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+}
+
+.web3-gradient-bg {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%);
+}
+
+.web3-border {
+  border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.web3-glow {
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
+}
+
+.neo-gradient {
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.2) 0%, rgba(0, 0, 0, 0) 100%);
+}
+
+.mesh-bg {
+  background-color: #13131a;
+  background-image: 
+    radial-gradient(at 29% 16%, hsla(269, 85%, 41%, 0.1) 0px, transparent 50%), 
+    radial-gradient(at 97% 85%, hsla(268, 91%, 44%, 0.1) 0px, transparent 50%);
 }

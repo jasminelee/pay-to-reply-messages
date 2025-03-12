@@ -29,12 +29,12 @@ const Layout = ({ children, requireAuth = false }: LayoutProps) => {
   // Show loading state when checking authentication
   if (isLoading && requireAuth) {
     return (
-      <div className="flex flex-col min-h-screen">
+      <div className="flex flex-col min-h-screen mesh-bg">
         <Navbar />
         <main className="flex-grow pt-16 flex items-center justify-center">
           <div className="animate-pulse text-center">
-            <div className="h-8 w-32 bg-gray-200 dark:bg-gray-700 rounded mb-4 mx-auto"></div>
-            <div className="h-4 w-48 bg-gray-200 dark:bg-gray-700 rounded mx-auto"></div>
+            <div className="h-8 w-32 bg-accent/20 rounded-md mb-4 mx-auto"></div>
+            <div className="h-4 w-48 bg-accent/10 rounded-md mx-auto"></div>
           </div>
         </main>
       </div>
@@ -42,16 +42,16 @@ const Layout = ({ children, requireAuth = false }: LayoutProps) => {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen mesh-bg">
       <Navbar />
       <main className="flex-grow pt-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {children}
         </div>
       </main>
-      <footer className="py-6 border-t border-gray-200/50 dark:border-gray-800/50 bg-white/80 dark:bg-black/50 backdrop-blur-sm">
+      <footer className="py-6 border-t border-white/5 bg-black/40 backdrop-blur-md">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-sm text-gray-500">
+          <p className="text-center text-sm text-muted-foreground">
             &copy; {new Date().getFullYear()} PayToReply. All rights reserved.
           </p>
         </div>

@@ -117,6 +117,14 @@ export default {
 				float: {
 					'0%, 100%': { transform: 'translateY(0)' },
 					'50%': { transform: 'translateY(-5px)' }
+				},
+				pulse: {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0.5' }
+				},
+				glow: {
+					'0%, 100%': { boxShadow: '0 0 5px rgba(139, 92, 246, 0.5)' },
+					'50%': { boxShadow: '0 0 20px rgba(139, 92, 246, 0.8)' }
 				}
 			},
 			animation: {
@@ -130,18 +138,28 @@ export default {
 				'scale-out': 'scale-out 0.2s ease-out',
 				'blur-in': 'blur-in 0.3s ease-out',
 				'blur-out': 'blur-out 0.3s ease-out',
-				'float': 'float 3s ease-in-out infinite'
+				'float': 'float 3s ease-in-out infinite',
+				'pulse': 'pulse 2s ease-in-out infinite',
+				'glow': 'glow 2s ease-in-out infinite'
 			},
 			boxShadow: {
 				'subtle': '0 2px 10px rgba(0, 0, 0, 0.05)',
 				'glass': '0 8px 32px rgba(0, 0, 0, 0.1)',
 				'hover': '0 10px 40px -10px rgba(0, 0, 0, 0.1)',
 				'button': '0 1px 2px rgba(0, 0, 0, 0.1)',
-				'card': '0 4px 12px rgba(0, 0, 0, 0.08)'
+				'card': '0 4px 12px rgba(0, 0, 0, 0.08)',
+				'neon': '0 0 10px rgba(139, 92, 246, 0.5)',
+				'neon-hover': '0 0 20px rgba(139, 92, 246, 0.8)'
 			},
 			backdropBlur: {
 				'xs': '2px',
-			}
+			},
+			backgroundImage: {
+				'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+				'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+				'grid-pattern': 'linear-gradient(to right, rgba(139, 92, 246, 0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(139, 92, 246, 0.1) 1px, transparent 1px)',
+				'hex-pattern': 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 40 40\'%3E%3Cpath d=\'M20 0 L40 10 L40 30 L20 40 L0 30 L0 10 Z\' fill=\'none\' stroke=\'rgba(139, 92, 246, 0.05)\' stroke-width=\'1\'/%3E%3C/svg%3E")',
+			},
 		}
 	},
 	plugins: [require("tailwindcss-animate")],
