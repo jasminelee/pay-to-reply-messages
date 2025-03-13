@@ -1,3 +1,4 @@
+
 import { useState, FormEvent } from 'react';
 import { AtSign, Send, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,10 +19,12 @@ import { toast } from '@/components/ui/use-toast';
 
 interface ComposeMessageProps {
   onSuccess?: () => void;
+  preselectedRecipient?: string;
+  streamlined?: boolean;
 }
 
-const ComposeMessage = ({ onSuccess }: ComposeMessageProps) => {
-  const [recipient, setRecipient] = useState('');
+const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: ComposeMessageProps) => {
+  const [recipient, setRecipient] = useState(preselectedRecipient || '');
   const [message, setMessage] = useState('');
   const [amount, setAmount] = useState(0.5);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,7 +60,10 @@ const ComposeMessage = ({ onSuccess }: ComposeMessageProps) => {
       });
       
       setIsSubmitting(false);
-      setRecipient('');
+      
+      if (!preselectedRecipient) {
+        setRecipient('');
+      }
       setMessage('');
       setAmount(0.5);
       
@@ -66,6 +72,53 @@ const ComposeMessage = ({ onSuccess }: ComposeMessageProps) => {
       }
     }, 1500);
   };
+
+  if (streamlined) {
+    return (
+      <form onSubmit={handleSubmit} className="space-y-4 p-6">
+        <div className="space-y-2">
+          <Label htmlFor="message">Your Message</Label>
+          <Textarea
+            id="message"
+            placeholder={`Write your message to @${recipient}...`}
+            className="glass-input min-h-32 resize-none"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground text-right">
+            {message.length} characters
+          </p>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="amount">Payment Amount ({formatAmount(amount)})</Label>
+            <Slider
+              id="amount"
+              min={0}
+              max={1}
+              step={0.001}
+              value={[amount]}
+              onValueChange={(values) => setAmount(values[0])}
+            />
+          </div>
+          <div className="flex justify-between text-sm text-muted-foreground">
+            <span>{formatAmount(0)}</span>
+            <span>{formatAmount(1)}</span>
+          </div>
+        </div>
+        
+        <Button 
+          type="submit" 
+          className="w-full bg-primary hover:bg-primary/90 transition-all duration-300 shadow-button"
+          disabled={isSubmitting}
+        >
+          <Send className="h-4 w-4 mr-2" />
+          {isSubmitting ? 'Sending...' : 'Send Message'}
+        </Button>
+      </form>
+    );
+  }
 
   return (
     <Card className="glass-card max-w-xl mx-auto">
@@ -79,7 +132,11 @@ const ComposeMessage = ({ onSuccess }: ComposeMessageProps) => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="recipient">Recipient</Label>
-            <Select value={recipient} onValueChange={setRecipient}>
+            <Select 
+              value={recipient} 
+              onValueChange={setRecipient}
+              disabled={!!preselectedRecipient}
+            >
               <SelectTrigger id="recipient" className="glass-input">
                 <SelectValue placeholder="Select a recipient" />
               </SelectTrigger>

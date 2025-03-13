@@ -11,19 +11,17 @@ import TransactionHistory from '@/components/TransactionHistory';
 import { getMessagesByUser, formatAmount, messages } from '@/utils/mockData';
 import { useWallet } from '@/contexts/WalletContext';
 import { useAuth } from '@/hooks/useAuth';
+import { AtSign } from 'lucide-react';
 
 const Dashboard = () => {
   const { balance, walletAddress, isConnected } = useWallet();
   const { user, profile } = useAuth();
   
-  // Always use the mock user ID for data display purposes
-  // This ensures we always have data to show in the dashboard
   const mockUserId = 'user-1';
   
   const sentMessages = getMessagesByUser(mockUserId, 'sent');
   const receivedMessages = getMessagesByUser(mockUserId, 'received');
   
-  // Calculate stats
   const pendingReceived = receivedMessages.filter(msg => msg.status === 'pending').length;
   const approvedReceived = receivedMessages.filter(msg => msg.status === 'approved').length;
   const totalReceived = receivedMessages.length;
@@ -32,7 +30,6 @@ const Dashboard = () => {
   const approvedSent = sentMessages.filter(msg => msg.status === 'approved').length;
   const totalSent = sentMessages.length;
   
-  // Calculate total earnings (sum of approved message payment amounts)
   const totalEarnings = receivedMessages
     .filter(msg => msg.status === 'approved')
     .reduce((sum, msg) => sum + msg.paymentAmount, 0);
@@ -51,7 +48,6 @@ const Dashboard = () => {
           </p>
         </div>
         
-        {/* Stats Overview */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card className="web3-card animate-scale-in" style={{animationDelay: '100ms'}}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -115,7 +111,6 @@ const Dashboard = () => {
         </div>
         
         <div className="grid gap-4 grid-cols-1 md:grid-cols-7">
-          {/* Main content */}
           <div className="md:col-span-4 space-y-4">
             <Card className="web3-card">
               <CardHeader className="flex items-center justify-between space-y-0">
@@ -176,7 +171,6 @@ const Dashboard = () => {
             </Card>
           </div>
           
-          {/* Sidebar */}
           <div className="md:col-span-3 space-y-4">
             <Card className="web3-card">
               <CardHeader>
@@ -196,6 +190,18 @@ const Dashboard = () => {
                     View Pending Messages ({pendingReceived})
                   </Link>
                 </Button>
+                {profile?.twitter_username && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start border-white/5 hover:bg-accent/5 hover:border-accent/20"
+                    asChild
+                  >
+                    <Link to={`/share/${profile.twitter_username}`}>
+                      <AtSign className="mr-2 h-4 w-4" />
+                      View My Share Page
+                    </Link>
+                  </Button>
+                )}
               </CardContent>
             </Card>
             
