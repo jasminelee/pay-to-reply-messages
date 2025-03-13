@@ -1,10 +1,9 @@
 
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { AtSign, MessageSquare, Send, ArrowRight } from 'lucide-react';
+import { AtSign, MessageSquare, Send, ArrowRight, Twitter, Wallet, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Layout from '@/components/Layout';
@@ -12,14 +11,54 @@ import ComposeMessage from '@/components/ComposeMessage';
 import { useAuth } from '@/hooks/useAuth';
 import { useWallet } from '@/contexts/WalletContext';
 import { toast } from '@/components/ui/use-toast';
-import AuthRequiredCard from '@/components/AuthRequiredCard';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { formatAmount } from '@/utils/mockData';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const Share = () => {
   const { username } = useParams<{ username: string }>();
-  const { user, profile, isLoading: authLoading } = useAuth();
-  const { isConnected, isLoading: walletLoading } = useWallet();
+  const { user, profile, isLoading: authLoading, signInWithTwitter } = useAuth();
+  const { 
+    isConnected, 
+    isLoading: walletLoading, 
+    connectWallet, 
+    isSupportedWalletInstalled,
+    walletName,
+    walletIcon
+  } = useWallet();
   const [recipient, setRecipient] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [message, setMessage] = useState('');
+  const [amount, setAmount] = useState(0.5);
+  const [isSending, setIsSending] = useState(false);
+  const [isWalletDialogOpen, setIsWalletDialogOpen] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const navigate = useNavigate();
+
+  const SUPPORTED_WALLETS = [
+    {
+      name: 'Phantom',
+      icon: 'https://phantom.app/favicon.ico',
+      adapter: 'phantom'
+    },
+    {
+      name: 'Solflare',
+      icon: 'https://solflare.com/favicon.ico',
+      adapter: 'solflare'
+    },
+    {
+      name: 'Backpack',
+      icon: 'https://backpack.app/favicon.ico',
+      adapter: 'backpack'
+    },
+    {
+      name: 'OKX',
+      icon: 'https://www.okx.com/favicon.ico',
+      adapter: 'okx'
+    }
+  ];
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -56,6 +95,81 @@ const Share = () => {
   // Prevent sending messages to yourself
   const isSelfMessage = profile?.twitter_username === username;
   
+  const handleSendMessage = () => {
+    if (!message) {
+      toast({
+        title: 'Message Required',
+        description: 'Please enter a message to send.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    setIsSending(true);
+    
+    // Simulate API call
+    setTimeout(() => {
+      toast({
+        title: 'Message Sent',
+        description: `Your message to @${recipient.twitter_username} has been sent with ${formatAmount(amount)}.`,
+      });
+      
+      setIsSending(false);
+      setMessage('');
+      setAmount(0.5);
+      setShowSuccess(true);
+    }, 1500);
+  };
+
+  const openWalletDialog = () => {
+    setIsWalletDialogOpen(true);
+  };
+
+  const closeWalletDialog = () => {
+    setIsWalletDialogOpen(false);
+  };
+
+  const handleWalletSelection = async (wallet: any) => {
+    await connectWallet(wallet);
+    closeWalletDialog();
+  };
+
+  const goToDashboard = () => {
+    navigate('/dashboard');
+  };
+
+  // Render success state
+  if (showSuccess) {
+    return (
+      <Layout>
+        <div className="flex flex-col space-y-8 animate-fade-in max-w-3xl mx-auto">
+          <Card className="web3-card">
+            <CardContent className="py-12">
+              <div className="text-center space-y-4">
+                <div className="h-16 w-16 rounded-full bg-green-500/20 mx-auto flex items-center justify-center">
+                  <Check className="h-8 w-8 text-green-500" />
+                </div>
+                <h2 className="text-2xl font-medium">Message Sent Successfully!</h2>
+                <p className="text-muted-foreground">
+                  Your message to @{recipient.twitter_username} has been delivered
+                </p>
+                <div className="pt-6 flex gap-4 justify-center">
+                  <Button variant="outline" onClick={() => setShowSuccess(false)}>
+                    Send Another Message
+                  </Button>
+                  <Button className="web3-button" onClick={goToDashboard}>
+                    Go to Dashboard
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="flex flex-col space-y-8 animate-fade-in max-w-3xl mx-auto">
@@ -126,19 +240,134 @@ const Share = () => {
                     </div>
                   </div>
                 </CardContent>
-              ) : user && isConnected ? (
-                <CardContent className="p-0">
-                  <ComposeMessage 
-                    preselectedRecipient={recipient.twitter_username || recipient.username}
-                    streamlined={true}
-                  />
-                </CardContent>
               ) : (
-                <CardContent className="py-8">
-                  <AuthRequiredCard 
-                    title="Connect to send a message"
-                    description={`You need to connect your wallet and sign in to send a message to @${recipient.twitter_username || recipient.username}`}
-                  />
+                <CardContent className="p-6">
+                  {!isConnected || !user ? (
+                    <div className="space-y-6">
+                      <div className="text-center space-y-2">
+                        <h3 className="text-lg font-medium">Sign in to send a message</h3>
+                        <p className="text-muted-foreground">Complete these steps to send a direct message to @{recipient.twitter_username}</p>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Card className={`web3-card transition-all duration-300 ${isConnected ? 'ring-2 ring-green-500/20' : ''}`}>
+                          <CardContent className="pt-6">
+                            <div className="flex flex-col items-center space-y-4">
+                              <div className={`h-10 w-10 rounded-full ${isConnected ? 'bg-green-500/10' : 'bg-accent/10'} flex items-center justify-center`}>
+                                {isConnected ? (
+                                  <Check className="h-5 w-5 text-green-500" />
+                                ) : (
+                                  <Wallet className="h-5 w-5 text-accent" />
+                                )}
+                              </div>
+                              <h4 className="font-medium">Step 1: Connect Wallet</h4>
+                              <p className="text-sm text-muted-foreground text-center">
+                                {isConnected 
+                                  ? `Connected to ${walletName}` 
+                                  : 'Connect your wallet to pay for messages'}
+                              </p>
+                            </div>
+                          </CardContent>
+                          <CardFooter>
+                            {isConnected ? (
+                              <Button disabled variant="outline" className="w-full opacity-50 cursor-not-allowed">
+                                Connected
+                                <Check className="ml-2 h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button 
+                                variant="outline" 
+                                className="w-full border-white/10 hover:bg-accent/5 hover:border-accent/20"
+                                onClick={openWalletDialog}
+                              >
+                                Connect Wallet
+                                <ArrowRight className="ml-2 h-4 w-4" />
+                              </Button>
+                            )}
+                          </CardFooter>
+                        </Card>
+                        
+                        <Card className={`web3-card transition-all duration-300 ${user ? 'ring-2 ring-green-500/20' : ''}`}>
+                          <CardContent className="pt-6">
+                            <div className="flex flex-col items-center space-y-4">
+                              <div className={`h-10 w-10 rounded-full ${user ? 'bg-green-500/10' : 'bg-accent/10'} flex items-center justify-center`}>
+                                {user ? (
+                                  <Check className="h-5 w-5 text-green-500" />
+                                ) : (
+                                  <Twitter className="h-5 w-5 text-accent" />
+                                )}
+                              </div>
+                              <h4 className="font-medium">Step 2: Twitter Sign-In</h4>
+                              <p className="text-sm text-muted-foreground text-center">
+                                {user 
+                                  ? `Signed in as @${profile?.twitter_username}` 
+                                  : 'Sign in with Twitter to identify yourself'}
+                              </p>
+                            </div>
+                          </CardContent>
+                          <CardFooter>
+                            {user ? (
+                              <Button disabled variant="outline" className="w-full opacity-50 cursor-not-allowed">
+                                Signed In
+                                <Check className="ml-2 h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button 
+                                className="w-full bg-[#1DA1F2] hover:bg-[#1a91da]" 
+                                onClick={signInWithTwitter}
+                              >
+                                <Twitter className="mr-2 h-4 w-4" />
+                                Sign In with Twitter
+                              </Button>
+                            )}
+                          </CardFooter>
+                        </Card>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="message">Your Message</Label>
+                        <Textarea
+                          id="message"
+                          placeholder={`Write your message to @${recipient.twitter_username}...`}
+                          className="glass-input min-h-32 resize-none"
+                          value={message}
+                          onChange={(e) => setMessage(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground text-right">
+                          {message.length} characters
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="amount">Payment Amount ({formatAmount(amount)})</Label>
+                          <Slider
+                            id="amount"
+                            min={0}
+                            max={1}
+                            step={0.001}
+                            value={[amount]}
+                            onValueChange={(values) => setAmount(values[0])}
+                          />
+                        </div>
+                        <div className="flex justify-between text-sm text-muted-foreground">
+                          <span>{formatAmount(0)}</span>
+                          <span>{formatAmount(1)}</span>
+                        </div>
+                      </div>
+                      
+                      <Button 
+                        onClick={handleSendMessage} 
+                        className="w-full bg-primary hover:bg-primary/90 transition-all duration-300 shadow-button mt-4"
+                        disabled={isSending}
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        {isSending ? 'Sending...' : 'Send Message'}
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               )}
             </Card>
@@ -165,6 +394,48 @@ const Share = () => {
           </Card>
         )}
       </div>
+
+      {/* Wallet Selection Dialog */}
+      <Dialog open={isWalletDialogOpen} onOpenChange={setIsWalletDialogOpen}>
+        <DialogContent className="sm:max-w-md neo-glass">
+          <DialogHeader>
+            <DialogTitle className="web3-gradient-text">Connect Wallet</DialogTitle>
+            <DialogDescription>
+              Select a wallet to connect
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-4 py-4">
+            {SUPPORTED_WALLETS.map((wallet) => {
+              const isInstalled = isSupportedWalletInstalled(wallet.adapter);
+              
+              return (
+                <Button
+                  key={wallet.name}
+                  variant="outline"
+                  className={`flex items-center justify-between p-4 h-auto border-white/5 ${
+                    isInstalled 
+                      ? 'hover:bg-accent/5 hover:border-accent/20' 
+                      : 'opacity-50'
+                  }`}
+                  onClick={() => isInstalled && handleWalletSelection(wallet)}
+                  disabled={!isInstalled}
+                >
+                  <div className="flex items-center">
+                    <Avatar className="h-8 w-8 mr-3">
+                      <AvatarImage src={wallet.icon} alt={wallet.name} />
+                      <AvatarFallback className="bg-accent/10 text-accent">{wallet.name[0]}</AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium">{wallet.name}</span>
+                  </div>
+                  {!isInstalled && (
+                    <span className="text-xs text-muted-foreground">Not installed</span>
+                  )}
+                </Button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
