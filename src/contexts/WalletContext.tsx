@@ -34,6 +34,7 @@ export const SUPPORTED_WALLETS: WalletInfo[] = [
 
 interface WalletContextType {
   isConnected: boolean;
+  isLoading: boolean;
   walletAddress: string;
   walletName: string | null;
   walletIcon: string | null;
@@ -47,6 +48,7 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [walletName, setWalletName] = useState<string | null>(null);
   const [walletIcon, setWalletIcon] = useState<string | null>(null);
@@ -103,6 +105,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   const connectWallet = async (walletInfo: WalletInfo): Promise<void> => {
     try {
+      setIsLoading(true);
       console.log(`Connecting to ${walletInfo.name} wallet...`);
       let walletAdapter: any;
       let publicKey: string = '';
@@ -190,6 +193,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
         variant: 'destructive',
       });
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -233,6 +238,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   const value = {
     isConnected,
+    isLoading,
     walletAddress,
     walletName,
     walletIcon,
