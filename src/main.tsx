@@ -9,8 +9,9 @@ import './index.css';
 // Prevent "Buffer is not defined" errors in console
 if (typeof window !== 'undefined' && !window.Buffer) {
   console.log('Initializing Buffer polyfill');
-  const { Buffer } = require('buffer');
-  window.Buffer = Buffer;
+  // Using the buffer module properly
+  const buffer = require('buffer');
+  window.Buffer = buffer.Buffer;
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

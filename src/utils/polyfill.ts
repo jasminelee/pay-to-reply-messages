@@ -1,6 +1,7 @@
 
 // Import required polyfills for browser compatibility
-import { Buffer } from 'buffer';
+import * as buffer from 'buffer';
+const Buffer = buffer.Buffer;
 
 // Make Buffer available globally
 window.Buffer = window.Buffer || Buffer;

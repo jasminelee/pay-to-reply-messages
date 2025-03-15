@@ -23,7 +23,7 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => ({
       "@": path.resolve(__dirname, "./src"),
       // Polyfill node built-ins
       stream: 'rollup-plugin-node-polyfills/polyfills/stream',
-      buffer: 'rollup-plugin-node-polyfills/polyfills/buffer',
+      buffer: 'buffer', // Direct alias to the buffer package
     },
   },
   define: {
