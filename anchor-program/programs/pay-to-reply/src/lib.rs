@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("GPS2swU3p4XGWisAh3n4QWQuMvrQdfnz2eSwME2dp66A");
 
 #[program]
 pub mod pay_to_reply {
@@ -40,6 +40,7 @@ pub struct SendMessagePayment<'info> {
     pub sender: Signer<'info>,
     
     /// The account receiving SOL
+    /// CHECK: This is safe because we're just transferring SOL to this account
     #[account(mut)]
     pub recipient: AccountInfo<'info>,
     

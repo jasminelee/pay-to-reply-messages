@@ -4,21 +4,33 @@
   "instructions": [
     {
       "name": "sendMessagePayment",
+      "docs": [
+        "Sends SOL from the sender to the recipient as part of a message payment"
+      ],
       "accounts": [
         {
           "name": "sender",
           "isMut": true,
-          "isSigner": true
+          "isSigner": true,
+          "docs": [
+            "The account sending SOL, must be a signer"
+          ]
         },
         {
           "name": "recipient",
           "isMut": true,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "The account receiving SOL"
+          ]
         },
         {
           "name": "systemProgram",
           "isMut": false,
-          "isSigner": false
+          "isSigner": false,
+          "docs": [
+            "The system program, used for transferring SOL"
+          ]
         }
       ],
       "args": [
@@ -30,6 +42,6 @@
     }
   ],
   "metadata": {
-    "address": "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+    "address": "GPS2swU3p4XGWisAh3n4QWQuMvrQdfnz2eSwME2dp66A"
   }
-} 
+}

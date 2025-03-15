@@ -4,7 +4,7 @@ import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import idlJSON from "../assets/pay_to_reply.json"; // We'll need to add this file later
 
 // Program ID from the deployed anchor program
-const PROGRAM_ID = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS";
+const PROGRAM_ID = "GPS2swU3p4XGWisAh3n4QWQuMvrQdfnz2eSwME2dp66A";
 
 // Sonic DevNet connection
 const connection = new Connection("https://api.testnet.sonic.game", "confirmed");

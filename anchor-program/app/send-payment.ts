@@ -33,7 +33,7 @@ async function main() {
   });
   
   // Create the program interface
-  const programId = new PublicKey("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"); 
+  const programId = new PublicKey("GPS2swU3p4XGWisAh3n4QWQuMvrQdfnz2eSwME2dp66A");
   const program = new anchor.Program(idl, programId, provider);
   
   // Get the recipient's address from command line arguments or use a default

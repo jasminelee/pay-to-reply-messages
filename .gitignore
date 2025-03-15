@@ -22,3 +22,22 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Anchor/Solana specific
+.anchor
+.DS_Store
+target
+**/*.rs.bk
+test-ledger
+.yarn
+**/.pnp.*
+.wireit
+.turbo
+
+# Build artifacts
+anchor-program/target/
+**/target/
+**/*.so
+**/*.d
+**/*.rlib
+**/*.rmeta

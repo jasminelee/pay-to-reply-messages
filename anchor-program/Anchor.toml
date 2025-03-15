@@ -2,8 +2,8 @@
 seeds = false
 skip-lint = false
 
-[programs.sonic]
-pay_to_reply = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+[programs.testnet]
+pay_to_reply = "GPS2swU3p4XGWisAh3n4QWQuMvrQdfnz2eSwME2dp66A"
 
 [registry]
 url = "https://api.apr.dev"
@@ -12,5 +12,9 @@ url = "https://api.apr.dev"
 cluster = "https://api.testnet.sonic.game"
 wallet = "~/.config/solana/id.json"
 
-[scripts]
-test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts" 
+[toolchain]
+anchor_version = "0.26.0"
+solana_version = "2.1.16"
+
+# After deployment, use solana config to set URL back to Sonic:
+# solana config set --url https://api.testnet.sonic.game 
