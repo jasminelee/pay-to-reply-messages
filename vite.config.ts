@@ -1,15 +1,14 @@
 
-import { defineConfig, ConfigEnv } from "vite";
+import { defineConfig, ConfigEnv, UserConfig, Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill';
 import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill';
 import rollupNodePolyFill from 'rollup-plugin-node-polyfills';
-import { Plugin } from 'vite';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }: ConfigEnv) => ({
+export default defineConfig(({ mode }: ConfigEnv): UserConfig => ({
   server: {
     host: "::",
     port: 8080,
@@ -44,8 +43,8 @@ export default defineConfig(({ mode }: ConfigEnv) => ({
         NodeGlobalsPolyfillPlugin({
           buffer: true,
           process: true,
-        }),
-        NodeModulesPolyfillPlugin(),
+        }) as any,
+        NodeModulesPolyfillPlugin() as any,
       ],
     },
   },
@@ -53,7 +52,6 @@ export default defineConfig(({ mode }: ConfigEnv) => ({
     rollupOptions: {
       plugins: [
         // Enable rollup polyfills plugin
-        // Cast as any to bypass type checking issues with rollup plugins
         rollupNodePolyFill() as any,
       ],
     },
