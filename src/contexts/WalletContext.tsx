@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from '@/components/ui/use-toast';
+import { BrowserWalletAdapter } from '@/utils/browserWalletAdapter';
+import { Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 
 // Define the types for wallet data
 export interface WalletInfo {
@@ -42,6 +44,7 @@ interface WalletContextType {
   connectWallet: (walletInfo: WalletInfo) => Promise<void>;
   disconnectWallet: () => void;
   isSupportedWalletInstalled: (adapter: string) => boolean;
+  getAnchorWallet: () => BrowserWalletAdapter | null;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -53,6 +56,9 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
   const [walletName, setWalletName] = useState<string | null>(null);
   const [walletIcon, setWalletIcon] = useState<string | null>(null);
   const [balance, setBalance] = useState<number>(0);
+  
+  // Connection to Sonic DevNet
+  const connection = new Connection("https://api.testnet.sonic.game", "confirmed");
 
   useEffect(() => {
     const storedWalletData = localStorage.getItem('sonicWalletData');
@@ -76,7 +82,11 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchBalance = async (address: string) => {
     try {
-      setBalance(Math.random() * 200);
+      // Actually fetch balance from the blockchain
+      const publicKey = new PublicKey(address);
+      const balanceInLamports = await connection.getBalance(publicKey);
+      const balanceInSOL = balanceInLamports / LAMPORTS_PER_SOL;
+      setBalance(balanceInSOL);
     } catch (error) {
       console.error('Failed to fetch balance:', error);
       setBalance(0);
@@ -101,6 +111,29 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     }
     
     return false;
+  };
+
+  const getAnchorWallet = (): BrowserWalletAdapter | null => {
+    if (!isConnected || !walletName) return null;
+    
+    let walletAdapter: any;
+    
+    switch (walletName.toLowerCase()) {
+      case 'phantom':
+        walletAdapter = window.phantom?.solana;
+        return new BrowserWalletAdapter('phantom', walletAdapter);
+      case 'solflare':
+        walletAdapter = window.solflare;
+        return new BrowserWalletAdapter('solflare', walletAdapter);
+      case 'backpack':
+        walletAdapter = window.backpack;
+        return new BrowserWalletAdapter('backpack', walletAdapter);
+      case 'okx':
+        walletAdapter = window.okxwallet?.solana;
+        return new BrowserWalletAdapter('okx', walletAdapter);
+      default:
+        return null;
+    }
   };
 
   const connectWallet = async (walletInfo: WalletInfo): Promise<void> => {
@@ -163,8 +196,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       }
       
       if (!publicKey) {
-        publicKey = `${walletInfo.name.substr(0, 3)}${Math.random().toString(36).substring(2, 8)}...${Math.random().toString(36).substring(2, 5)}`;
-        console.warn('Using mock public key due to connection issues');
+        throw new Error(`Failed to get public key from ${walletInfo.name}`);
       }
       
       setIsConnected(true);
@@ -246,6 +278,7 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     connectWallet,
     disconnectWallet,
     isSupportedWalletInstalled,
+    getAnchorWallet
   };
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

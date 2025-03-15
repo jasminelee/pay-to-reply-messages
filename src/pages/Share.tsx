@@ -1,4 +1,3 @@
-
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,6 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { formatAmount } from '@/utils/mockData';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { sendPayment } from '@/utils/anchorClient';
+import { createClient } from '@supabase/supabase-js';
 
 const Share = () => {
   const { username } = useParams<{ username: string }>();
@@ -26,7 +27,8 @@ const Share = () => {
     connectWallet, 
     isSupportedWalletInstalled,
     walletName,
-    walletIcon
+    walletIcon,
+    getAnchorWallet
   } = useWallet();
   const [recipient, setRecipient] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -95,7 +97,7 @@ const Share = () => {
   // Prevent sending messages to yourself
   const isSelfMessage = profile?.twitter_username === username;
   
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!message) {
       toast({
         title: 'Message Required',
@@ -105,20 +107,54 @@ const Share = () => {
       return;
     }
     
+    if (!isConnected) {
+      toast({
+        title: 'Wallet Not Connected',
+        description: 'Please connect your wallet to send a message.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setIsSending(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Get the anchor wallet adapter from the wallet context
+      const wallet = getAnchorWallet();
+      if (!wallet) {
+        throw new Error('Failed to get wallet');
+      }
+      
+      // Get the recipient's address - assuming we have it in the recipient object
+      // You might need to modify this according to your data structure
+      const recipientAddress = recipient.wallet_address;
+      if (!recipientAddress) {
+        throw new Error('Recipient wallet address not found');
+      }
+      
+      // Send the payment using the real anchor program
+      const tx = await sendPayment(wallet, recipientAddress, amount);
+      
       toast({
-        title: 'Message Sent',
+        title: 'Transaction Successful',
         description: `Your message to @${recipient.twitter_username} has been sent with ${formatAmount(amount)}.`,
       });
+      
+      console.log('Transaction signature:', tx);
       
       setIsSending(false);
       setMessage('');
       setAmount(0.5);
       setShowSuccess(true);
-    }, 1500);
+    } catch (error) {
+      console.error('Error sending payment:', error);
+      toast({
+        title: 'Transaction Failed',
+        description: `Failed to send payment. Please try again. ${error instanceof Error ? error.message : ''}`,
+        variant: 'destructive',
+      });
+      setIsSending(false);
+    }
   };
 
   const openWalletDialog = () => {

@@ -1,0 +1,28 @@
+{
+  "name": "pay-to-reply",
+  "version": "0.1.0",
+  "description": "Program to send SOL payments when sending messages on Sonic DevNet",
+  "main": "app/send-payment.ts",
+  "scripts": {
+    "build": "anchor build",
+    "deploy": "anchor deploy",
+    "test": "anchor test",
+    "start": "ts-node app/send-payment.ts",
+    "client": "ts-node app/send-payment.ts"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.28.0",
+    "@solana/web3.js": "^1.78.0"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.1.1",
+    "@types/chai": "^4.3.5",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "^20.4.2",
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0",
+    "ts-mocha": "^10.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.1.6"
+  }
+} 

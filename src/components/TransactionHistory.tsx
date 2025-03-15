@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, CheckCircle2, Clock, RefreshCcw, XCircle } from 'lucide-react';
 import {
@@ -10,36 +9,150 @@ import {
 } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Transaction, User, formatAmount, formatDate, getStatusColor, transactions, users } from '@/utils/mockData';
+import { formatAmount, formatDate, getStatusColor } from '@/utils/mockData';
+import { Transaction, User, users } from '@/utils/mockData';
+import { useWallet } from '@/contexts/WalletContext';
+import { Connection, PublicKey, LAMPORTS_PER_SOL, ConfirmedSignatureInfo } from '@solana/web3.js';
 
 interface TransactionHistoryProps {
   userId?: string;
   limit?: number;
 }
 
-const TransactionHistory = ({ userId = 'user-1', limit }: TransactionHistoryProps) => {
+// Interface for on-chain transactions
+interface OnChainTransaction {
+  id: string;
+  signature: string;
+  senderId: string;
+  recipientId: string;
+  amount: number;
+  status: 'pending' | 'completed' | 'refunded' | 'failed';
+  type: 'send' | 'receive';
+  timestamp: string;
+}
+
+const TransactionHistory = ({ userId = 'user-1', limit = 10 }: TransactionHistoryProps) => {
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { walletAddress, isConnected } = useWallet();
 
   useEffect(() => {
-    let userTransactions = transactions.filter(
-      tx => tx.senderId === userId || tx.recipientId === userId
-    );
-    
-    // Sort by timestamp (newest first)
-    userTransactions.sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
-    
-    // Apply limit if provided
-    if (limit) {
-      userTransactions = userTransactions.slice(0, limit);
+    // If wallet is not connected, fall back to mock data
+    if (!isConnected || !walletAddress) {
+      // Use mock data as fallback
+      let userTransactions = [...filteredTransactions];
+      
+      // Sort by timestamp (newest first)
+      userTransactions.sort((a, b) => 
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      );
+      
+      // Apply limit if provided
+      if (limit) {
+        userTransactions = userTransactions.slice(0, limit);
+      }
+      
+      setFilteredTransactions(userTransactions);
+      setIsLoading(false);
+      return;
     }
+
+    // Function to fetch transaction history from the blockchain
+    const fetchTransactionHistory = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Connect to Solana (using Sonic DevNet)
+        const connection = new Connection("https://api.testnet.sonic.game", "confirmed");
+        
+        // Get recent transactions for the wallet
+        const signatures = await connection.getSignaturesForAddress(
+          new PublicKey(walletAddress),
+          { limit }
+        );
+        
+        // Process each transaction
+        const onChainTransactions: OnChainTransaction[] = [];
+        
+        for (const signatureInfo of signatures) {
+          try {
+            const txInfo = await connection.getTransaction(signatureInfo.signature);
+            
+            if (txInfo && txInfo.meta) {
+              // Check if this is potentially a payment transaction
+              const preBalances = txInfo.meta.preBalances;
+              const postBalances = txInfo.meta.postBalances;
+              const accountKeys = txInfo.transaction.message.accountKeys;
+              
+              // Find the sender and recipient
+              let senderId = '';
+              let recipientId = '';
+              let amount = 0;
+              
+              // Simplistic approach: look for accounts with balance changes
+              for (let i = 0; i < accountKeys.length; i++) {
+                const accountKey = accountKeys[i].toBase58();
+                const preBalance = preBalances[i];
+                const postBalance = postBalances[i];
+                const balanceChange = postBalance - preBalance;
+                
+                // If balance decreased, this might be the sender
+                if (balanceChange < 0 && accountKey === walletAddress) {
+                  senderId = accountKey;
+                  amount = Math.abs(balanceChange) / LAMPORTS_PER_SOL;
+                }
+                // If balance increased, this might be the recipient
+                else if (balanceChange > 0 && accountKey !== walletAddress) {
+                  recipientId = accountKey;
+                }
+              }
+              
+              // If we identified a payment transaction
+              if (senderId && recipientId && amount > 0) {
+                onChainTransactions.push({
+                  id: signatureInfo.signature,
+                  signature: signatureInfo.signature,
+                  senderId,
+                  recipientId,
+                  amount,
+                  status: 'completed',
+                  type: senderId === walletAddress ? 'send' : 'receive',
+                  timestamp: new Date(signatureInfo.blockTime! * 1000).toISOString()
+                });
+              }
+            }
+          } catch (err) {
+            console.error(`Error processing transaction ${signatureInfo.signature}:`, err);
+          }
+        }
+        
+        // Convert to the format expected by the UI
+        const formattedTransactions: Transaction[] = onChainTransactions.map(tx => ({
+          id: tx.id,
+          messageId: undefined,
+          senderId: tx.senderId,
+          recipientId: tx.recipientId,
+          amount: tx.amount,
+          status: tx.status,
+          type: tx.type,
+          timestamp: tx.timestamp
+        }));
+        
+        setFilteredTransactions(formattedTransactions);
+      } catch (error) {
+        console.error("Error fetching transaction history:", error);
+        // Fall back to empty array on error
+        setFilteredTransactions([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    setFilteredTransactions(userTransactions);
-  }, [userId, limit]);
+    fetchTransactionHistory();
+  }, [walletAddress, isConnected, limit]);
 
   const getTransactionIcon = (transaction: Transaction) => {
-    const isSender = transaction.senderId === userId;
+    const isSender = transaction.senderId === walletAddress || transaction.senderId === userId;
     
     switch (transaction.status) {
       case 'pending':
@@ -58,15 +171,27 @@ const TransactionHistory = ({ userId = 'user-1', limit }: TransactionHistoryProp
   };
 
   const getCounterpartyUser = (transaction: Transaction): User | undefined => {
-    const counterpartyId = transaction.senderId === userId ? transaction.recipientId : transaction.senderId;
+    const counterpartyId = (transaction.senderId === walletAddress || transaction.senderId === userId) 
+      ? transaction.recipientId 
+      : transaction.senderId;
     return users.find(user => user.id === counterpartyId);
   };
 
   const getTransactionDescription = (transaction: Transaction) => {
+    // For real blockchain transactions, we might not have user info
+    // So display the address if user info isn't available
     const counterparty = getCounterpartyUser(transaction);
-    const isSender = transaction.senderId === userId;
+    const isSender = transaction.senderId === walletAddress || transaction.senderId === userId;
     
-    if (!counterparty) return '';
+    // For on-chain transactions, we might display addresses
+    const counterpartyAddress = isSender ? transaction.recipientId : transaction.senderId;
+    const shortAddress = counterpartyAddress && counterpartyAddress.length > 8 
+      ? `${counterpartyAddress.substring(0, 4)}...${counterpartyAddress.substring(counterpartyAddress.length - 4)}` 
+      : counterpartyAddress;
+    
+    if (!counterparty) {
+      return isSender ? `Payment to ${shortAddress}` : `Payment from ${shortAddress}`;
+    }
     
     switch (transaction.type) {
       case 'send':
@@ -92,15 +217,14 @@ const TransactionHistory = ({ userId = 'user-1', limit }: TransactionHistoryProp
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {filteredTransactions.length === 0 ? (
+          {isLoading ? (
+            <p className="text-center text-muted-foreground py-8">Loading transactions...</p>
+          ) : filteredTransactions.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">No transactions found.</p>
           ) : (
             filteredTransactions.map((transaction) => {
-              const counterparty = getCounterpartyUser(transaction);
-              if (!counterparty) return null;
-              
               const statusColors = getStatusColor(transaction.status);
-              const isSender = transaction.senderId === userId;
+              const isSender = transaction.senderId === walletAddress || transaction.senderId === userId;
               
               return (
                 <div key={transaction.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">

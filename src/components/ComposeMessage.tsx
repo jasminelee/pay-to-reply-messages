@@ -1,21 +1,17 @@
-
-import { useState, FormEvent } from 'react';
-import { AtSign, Send, User } from 'lucide-react';
+import { FormEvent, useState } from 'react';
+import { Send, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { users, formatAmount } from '@/utils/mockData';
 import { toast } from '@/components/ui/use-toast';
+import { formatAmount } from '@/utils/mockData';
+import { users } from '@/utils/mockData';
+import { useWallet } from '@/contexts/WalletContext';
+import { sendPayment } from '@/utils/anchorClient';
+import { PublicKey } from '@solana/web3.js';
 
 interface ComposeMessageProps {
   onSuccess?: () => void;
@@ -23,14 +19,33 @@ interface ComposeMessageProps {
   streamlined?: boolean;
 }
 
+// Mock addresses for users
+const USER_ADDRESSES: Record<string, string> = {
+  'jasmineflee': '8rRSCYJWGrgEnBXUHtgUMseNBfkrXLHVQvVmvn7Puqp4',
+  'mikezhang': 'DM5gyrYPj5jfRGKT6BbLJVrYxpJ9pZMWuP1gCvxBMrcg',
+  'sarahkim': 'CxDc845MD8jxYbGjUCjQ5GHVH1Ex4UEwxK6JmGGZT7vF',
+  'willsmith': 'BN3gGhxPcn2YxFL1QZsmPqDf3WrDMEZtjzdFm4SJzgdT',
+  'taylorj': 'Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS'
+};
+
 const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: ComposeMessageProps) => {
   const [recipient, setRecipient] = useState(preselectedRecipient || '');
   const [message, setMessage] = useState('');
   const [amount, setAmount] = useState(0.5);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isConnected, getAnchorWallet } = useWallet();
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    
+    if (!isConnected) {
+      toast({
+        title: 'Wallet Not Connected',
+        description: 'Please connect your wallet to send a message.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     if (!recipient) {
       toast({
@@ -50,27 +65,57 @@ const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: Compos
       return;
     }
     
+    // Get the recipient's address
+    const recipientAddress = USER_ADDRESSES[recipient];
+    if (!recipientAddress) {
+      toast({
+        title: 'Invalid Recipient',
+        description: 'Could not find address for the selected recipient.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Get the anchor wallet adapter
+      const wallet = getAnchorWallet();
+      if (!wallet) {
+        throw new Error('Failed to get wallet');
+      }
+      
+      // Send the payment using the real anchor program
+      const tx = await sendPayment(wallet, recipientAddress, amount);
+      
       toast({
-        title: 'Message Sent',
+        title: 'Transaction Successful',
         description: `Your message to @${recipient} has been sent with ${formatAmount(amount)}.`,
       });
       
-      setIsSubmitting(false);
+      console.log('Transaction signature:', tx);
       
+      // Reset form
       if (!preselectedRecipient) {
         setRecipient('');
       }
       setMessage('');
       setAmount(0.5);
       
+      // Call success callback
       if (onSuccess) {
         onSuccess();
       }
-    }, 1500);
+    } catch (error) {
+      console.error('Error sending payment:', error);
+      toast({
+        title: 'Transaction Failed',
+        description: `Failed to send payment. Please try again. ${error instanceof Error ? error.message : ''}`,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (streamlined) {
