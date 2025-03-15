@@ -19,4 +19,21 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  define: {
+    // This adds buffer to the global scope for all browser builds
+    global: {},
+  },
+  // Add Node.js polyfills for browser compatibility
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: 'globalThis',
+      },
+    },
+  },
+  build: {
+    rollupOptions: {
+      plugins: [],
+    },
+  },
 }));
