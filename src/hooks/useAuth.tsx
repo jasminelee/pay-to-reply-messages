@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase, checkSupabaseConnection, checkTwitterAuthConfig } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
@@ -7,6 +8,8 @@ interface Profile {
   username: string;
   avatar_url: string;
   twitter_username: string;
+  wallet_address?: string;
+  wallet_name?: string;
 }
 
 interface AuthContextType {

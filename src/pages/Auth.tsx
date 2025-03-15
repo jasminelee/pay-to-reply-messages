@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, checkSupabaseConnection, checkTwitterAuthConfig } from '@/integrations/supabase/client';
@@ -5,6 +6,8 @@ import { Twitter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/use-toast';
 import Layout from '@/components/Layout';
+import ProfileManager from '@/components/ProfileManager';
+import { useAuth } from '@/hooks/useAuth';
 
 // Import these constants from the client file to ensure consistency
 const SUPABASE_URL = "https://umvaywtxpxpyybpkwptc.supabase.co";
@@ -16,7 +19,9 @@ const Auth = () => {
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [twitterAuthStatus, setTwitterAuthStatus] = useState<'checking' | 'configured' | 'not-configured'>('checking');
   const [twitterAuthError, setTwitterAuthError] = useState<string | null>(null);
+  const [showProfileManager, setShowProfileManager] = useState(false);
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
   
   useEffect(() => {    
     // Check Supabase connection
@@ -113,8 +118,8 @@ const Auth = () => {
                 description: 'Welcome back!',
               });
               
-              // Redirect to dashboard
-              navigate('/dashboard');
+              // Show profile manager instead of redirecting immediately
+              setShowProfileManager(true);
             } else {
               setAuthError("No session established after authentication");
               toast({
@@ -148,24 +153,16 @@ const Auth = () => {
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        // If logged in, redirect to dashboard
-        console.log("User is logged in, redirecting to dashboard");
-        navigate('/dashboard');
+        // User is logged in, show profile manager
+        setShowProfileManager(true);
       }
     });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (session) {
-          // If logged in, redirect to dashboard
-          navigate('/dashboard');
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const handleProfileComplete = () => {
+    // After profile setup is complete, redirect to dashboard
+    navigate('/dashboard');
+  };
 
   const handleTwitterLogin = async () => {
     try {
@@ -215,43 +212,67 @@ const Auth = () => {
     <Layout>
       <div className="flex flex-col items-center justify-center py-12 animate-fade-in">
         <div className="w-full max-w-md p-8 space-y-8 bg-white/40 dark:bg-gray-900/40 backdrop-blur-lg rounded-xl border border-gray-200/50 dark:border-gray-800/50 shadow-lg">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold tracking-tight">Welcome Back</h1>
-            <p className="mt-2 text-muted-foreground">
-              Sign in to your account to continue
-            </p>
-          </div>
-          
-          <div className="mt-8 space-y-4">
-            <Button 
-              onClick={handleTwitterLogin}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-[#1DA1F2] hover:bg-[#1a91da] transition-all duration-200"
-            >
-              <Twitter className="h-5 w-5" />
-              <span>{loading ? 'Connecting...' : 'Sign in with Twitter'}</span>
-            </Button>
-            
-            <div className="text-center text-sm mt-6 text-muted-foreground">
-              By signing in, you agree to our Terms of Service and Privacy Policy.
+          {showProfileManager && user ? (
+            <div className="space-y-6">
+              <div className="text-center">
+                <h1 className="text-2xl font-bold tracking-tight">Connect Your Accounts</h1>
+                <p className="mt-2 text-muted-foreground">
+                  Link your Twitter and wallet to get started
+                </p>
+              </div>
+              <ProfileManager onComplete={handleProfileComplete} />
+              
+              <div className="text-center pt-4">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => navigate('/dashboard')}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Skip for now
+                </Button>
+              </div>
             </div>
-          </div>
-          
-          <div className="mt-8 p-4 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-xs">
-            <h3 className="font-semibold mb-2">Debug Info:</h3>
-            <div className="space-y-1">
-              <p>Current URL: {window.location.href}</p>
-              <p>Redirect URL: {`${window.location.origin}/auth`}</p>
-              <p>Supabase URL: {SUPABASE_URL}</p>
-              <p>Connection Status: {connectionStatus === 'checking' ? 'Checking...' : connectionStatus === 'success' ? '✅ Connected' : '❌ Error'}</p>
-              {connectionError && <p className="text-red-500">Connection Error: {connectionError}</p>}
-              <p>Twitter Auth: {twitterAuthStatus === 'checking' ? 'Checking...' : twitterAuthStatus === 'configured' ? '✅ Configured' : '❌ Not Configured'}</p>
-              {twitterAuthError && <p className="text-red-500">Twitter Auth Error: {twitterAuthError}</p>}
-              {authError && <p className="text-red-500">Auth Error: {authError}</p>}
-              <p>Hash: {window.location.hash || 'none'}</p>
-              <p>Query: {window.location.search || 'none'}</p>
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="text-center">
+                <h1 className="text-3xl font-bold tracking-tight">Welcome Back</h1>
+                <p className="mt-2 text-muted-foreground">
+                  Sign in to your account to continue
+                </p>
+              </div>
+              
+              <div className="mt-8 space-y-4">
+                <Button 
+                  onClick={handleTwitterLogin}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-2 bg-[#1DA1F2] hover:bg-[#1a91da] transition-all duration-200"
+                >
+                  <Twitter className="h-5 w-5" />
+                  <span>{loading ? 'Connecting...' : 'Sign in with Twitter'}</span>
+                </Button>
+                
+                <div className="text-center text-sm mt-6 text-muted-foreground">
+                  By signing in, you agree to our Terms of Service and Privacy Policy.
+                </div>
+              </div>
+              
+              <div className="mt-8 p-4 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-xs">
+                <h3 className="font-semibold mb-2">Debug Info:</h3>
+                <div className="space-y-1">
+                  <p>Current URL: {window.location.href}</p>
+                  <p>Redirect URL: {`${window.location.origin}/auth`}</p>
+                  <p>Supabase URL: {SUPABASE_URL}</p>
+                  <p>Connection Status: {connectionStatus === 'checking' ? 'Checking...' : connectionStatus === 'success' ? '✅ Connected' : '❌ Error'}</p>
+                  {connectionError && <p className="text-red-500">Connection Error: {connectionError}</p>}
+                  <p>Twitter Auth: {twitterAuthStatus === 'checking' ? 'Checking...' : twitterAuthStatus === 'configured' ? '✅ Configured' : '❌ Not Configured'}</p>
+                  {twitterAuthError && <p className="text-red-500">Twitter Auth Error: {twitterAuthError}</p>}
+                  {authError && <p className="text-red-500">Auth Error: {authError}</p>}
+                  <p>Hash: {window.location.hash || 'none'}</p>
+                  <p>Query: {window.location.search || 'none'}</p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </Layout>
