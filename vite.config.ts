@@ -17,13 +17,14 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => ({
     react(),
     mode === 'development' &&
     componentTagger(),
-  ].filter(Boolean),
+  ].filter(Boolean) as Plugin[],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
       // Polyfill node built-ins
       stream: 'rollup-plugin-node-polyfills/polyfills/stream',
-      buffer: 'buffer', // Direct alias to the buffer package
+      buffer: 'buffer', // Use the buffer package directly
+      process: 'rollup-plugin-node-polyfills/polyfills/process',
     },
   },
   define: {
@@ -54,6 +55,9 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => ({
         // Enable rollup polyfills plugin
         rollupNodePolyFill() as any,
       ],
+    },
+    commonjsOptions: {
+      transformMixedEsModules: true,
     },
   },
 }));
