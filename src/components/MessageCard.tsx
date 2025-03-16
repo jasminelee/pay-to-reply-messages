@@ -15,16 +15,29 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Message, formatAmount, formatDate, getStatusColor } from '@/utils/mockData';
 import { toast } from '@/components/ui/use-toast';
+import { useWallet } from '@/contexts/WalletContext';
+import { approveMessagePayment, rejectMessagePayment } from '@/utils/anchorClient';
 
 interface MessageCardProps {
   message: Message;
   variant?: 'compact' | 'full';
 }
 
+// Mock sender addresses (in a real app, these would be stored with the message)
+const SENDER_ADDRESSES: Record<string, string> = {
+  'willsmith': 'BN3gGhxPcn2YxFL1QZsmPqDf3WrDMEZtjzdFm4SJzgdT',
+  'jasmineflee': '8rRSCYJWGrgEnBXUHtgUMseNBfkrXLHVQvVmvn7Puqp4',
+  'mikezhang': 'DM5gyrYPj5jfRGKT6BbLJVrYxpJ9pZMWuP1gCvxBMrcg', 
+  'sarahkim': 'CxDc845MD8jxYbGjUCjQ5GHVH1Ex4UEwxK6JmGGZT7vF',
+  'taylorj': 'Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS'
+};
+
 const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { isConnected, getAnchorWallet } = useWallet();
 
   const handleView = () => {
     setIsOpen(true);
@@ -35,32 +48,86 @@ const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
   };
 
   const initiateApprove = () => {
+    if (!isConnected) {
+      toast({
+        title: 'Wallet Not Connected',
+        description: 'Please connect your wallet to approve this message.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setConfirmAction('approve');
     setIsConfirmOpen(true);
   };
 
   const initiateReject = () => {
+    if (!isConnected) {
+      toast({
+        title: 'Wallet Not Connected',
+        description: 'Please connect your wallet to reject this message.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setConfirmAction('reject');
     setIsConfirmOpen(true);
   };
 
-  const handleConfirm = () => {
-    if (confirmAction === 'approve') {
-      // Handle approve action
-      toast({
-        title: 'Message Approved',
-        description: `You've approved the message from @${message.senderUsername}.`,
-      });
-    } else if (confirmAction === 'reject') {
-      // Handle reject action
-      toast({
-        title: 'Message Rejected',
-        description: `You've rejected the message from @${message.senderUsername}. The payment will be refunded.`,
-      });
-    }
-    
+  const handleConfirm = async () => {
     setIsConfirmOpen(false);
-    setIsOpen(false);
+    setIsProcessing(true);
+
+    try {
+      // Get the wallet adapter
+      const wallet = getAnchorWallet();
+      if (!wallet) {
+        throw new Error('Failed to get wallet');
+      }
+
+      // Get sender address
+      const senderAddress = SENDER_ADDRESSES[message.senderUsername];
+      if (!senderAddress) {
+        throw new Error('Sender address not found');
+      }
+
+      // Use the message ID as the escrow identifier
+      // In a real app, this would be a unique ID stored with the message
+      const messageId = message.id;
+
+      if (confirmAction === 'approve') {
+        // Execute approve transaction
+        const tx = await approveMessagePayment(wallet, senderAddress, messageId);
+        
+        toast({
+          title: 'Message Approved',
+          description: `You've approved the message from @${message.senderUsername} and received ${formatAmount(message.paymentAmount)}.`,
+        });
+        
+        console.log('Approval transaction:', tx);
+      } else if (confirmAction === 'reject') {
+        // Execute reject transaction
+        const tx = await rejectMessagePayment(wallet, senderAddress, messageId);
+        
+        toast({
+          title: 'Message Rejected',
+          description: `You've rejected the message from @${message.senderUsername}. The payment has been returned.`,
+        });
+        
+        console.log('Rejection transaction:', tx);
+      }
+    } catch (error) {
+      console.error('Error processing message:', error);
+      toast({
+        title: 'Transaction Failed',
+        description: `Failed to ${confirmAction} the message. Please try again. ${error instanceof Error ? error.message : ''}`,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsProcessing(false);
+      setIsOpen(false);
+    }
   };
 
   const handleCancelConfirm = () => {
@@ -138,6 +205,7 @@ const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
                   size="sm"
                   className="text-red-500 hover:bg-red-500/10"
                   onClick={initiateReject}
+                  disabled={isProcessing}
                 >
                   <X className="h-4 w-4 mr-1" /> Reject
                 </Button>
@@ -146,6 +214,7 @@ const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
                   size="sm"
                   className="text-green-500 hover:bg-green-500/10"
                   onClick={initiateApprove}
+                  disabled={isProcessing}
                 >
                   <Check className="h-4 w-4 mr-1" /> Approve
                 </Button>
@@ -195,6 +264,7 @@ const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
                   variant="outline"
                   className="text-red-500 hover:bg-red-500/10"
                   onClick={initiateReject}
+                  disabled={isProcessing}
                 >
                   <X className="h-4 w-4 mr-1" /> Reject
                 </Button>
@@ -202,6 +272,7 @@ const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
                   variant="default"
                   className="bg-green-500 hover:bg-green-600"
                   onClick={initiateApprove}
+                  disabled={isProcessing}
                 >
                   <Check className="h-4 w-4 mr-1" /> Approve
                 </Button>
@@ -221,7 +292,7 @@ const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
             <DialogDescription>
               {confirmAction === 'approve'
                 ? `Are you sure you want to approve this message? You will receive ${formatAmount(message.paymentAmount)}.`
-                : `Are you sure you want to reject this message? The payment of ${formatAmount(message.paymentAmount)} will be refunded.`}
+                : `Are you sure you want to reject this message? The payment of ${formatAmount(message.paymentAmount)} will be returned to the sender.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex sm:justify-end gap-2">
@@ -231,8 +302,9 @@ const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
             <Button
               variant={confirmAction === 'approve' ? 'default' : 'destructive'}
               onClick={handleConfirm}
+              disabled={isProcessing}
             >
-              {confirmAction === 'approve' ? 'Approve' : 'Reject'}
+              {isProcessing ? 'Processing...' : (confirmAction === 'approve' ? 'Approve' : 'Reject')}
             </Button>
           </DialogFooter>
         </DialogContent>

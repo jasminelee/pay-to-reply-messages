@@ -1,11 +1,12 @@
+
 {
   "version": "0.1.0",
   "name": "pay_to_reply",
   "instructions": [
     {
-      "name": "sendMessagePayment",
+      "name": "createMessagePayment",
       "docs": [
-        "Sends SOL from the sender to the recipient as part of a message payment"
+        "Sends SOL from the sender to an escrow account as part of a message payment"
       ],
       "accounts": [
         {
@@ -18,10 +19,18 @@
         },
         {
           "name": "recipient",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "The account that will receive SOL if approved"
+          ]
+        },
+        {
+          "name": "messageEscrow",
           "isMut": true,
           "isSigner": false,
           "docs": [
-            "The account receiving SOL"
+            "The escrow account that will hold the SOL temporarily"
           ]
         },
         {
@@ -29,7 +38,7 @@
           "isMut": false,
           "isSigner": false,
           "docs": [
-            "The system program, used for transferring SOL"
+            "The system program, used for transfers and account creation"
           ]
         }
       ],
@@ -37,8 +46,170 @@
         {
           "name": "amount",
           "type": "u64"
+        },
+        {
+          "name": "messageId",
+          "type": "string"
         }
       ]
+    },
+    {
+      "name": "approveMessagePayment",
+      "docs": [
+        "Approves a message payment, transferring SOL from escrow to recipient"
+      ],
+      "accounts": [
+        {
+          "name": "sender",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "The original sender of the payment"
+          ]
+        },
+        {
+          "name": "recipient",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "The recipient of the payment, must be a signer"
+          ]
+        },
+        {
+          "name": "messageEscrow",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "The escrow account holding the SOL"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "The system program, used for transfers"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "rejectMessagePayment",
+      "docs": [
+        "Rejects a message payment, returning SOL from escrow to sender"
+      ],
+      "accounts": [
+        {
+          "name": "sender",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "The original sender of the payment"
+          ]
+        },
+        {
+          "name": "recipient",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "The recipient of the payment, must be a signer"
+          ]
+        },
+        {
+          "name": "messageEscrow",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "The escrow account holding the SOL"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "The system program, used for transfers"
+          ]
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "MessageEscrow",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "sender",
+            "type": "publicKey"
+          },
+          {
+            "name": "recipient",
+            "type": "publicKey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "messageId",
+            "type": "string"
+          },
+          {
+            "name": "status",
+            "type": {
+              "defined": "EscrowStatus"
+            }
+          },
+          {
+            "name": "createdAt",
+            "type": "i64"
+          },
+          {
+            "name": "processedAt",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ],
+  "types": [
+    {
+      "name": "EscrowStatus",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Pending"
+          },
+          {
+            "name": "Approved"
+          },
+          {
+            "name": "Rejected"
+          }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidEscrowStatus",
+      "msg": "Invalid escrow status"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidRecipient",
+      "msg": "Invalid recipient"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidSender",
+      "msg": "Invalid sender"
     }
   ],
   "metadata": {
