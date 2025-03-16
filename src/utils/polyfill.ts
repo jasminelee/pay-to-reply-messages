@@ -1,11 +1,11 @@
 
 // Import required polyfills for browser compatibility
-import { Buffer as BufferFromPackage } from 'buffer';
+import { Buffer } from 'buffer';
 
 // Make Buffer available globally
 if (typeof window !== 'undefined') {
   // Ensure Buffer is defined properly
-  window.Buffer = window.Buffer || BufferFromPackage;
+  window.Buffer = window.Buffer || Buffer;
   
   // Set up global variables for Node.js compatibility
   if (!window.global) {
