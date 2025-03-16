@@ -1,6 +1,5 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { PublicKey } from "@solana/web3.js";
 
 export type MessageStatus = 'pending' | 'approved' | 'rejected';
 
@@ -76,18 +75,28 @@ export const fetchMessages = async (
     }
 
     // Format the messages with sender info
-    return (data || []).map(msg => {
+    const formattedMessages: MessageData[] = (data || []).map(msg => {
       const sender = msg.sender as any;
       const recipient = msg.recipient as any;
       
       return {
-        ...msg,
+        id: msg.id,
+        sender_id: msg.sender_id,
+        recipient_id: msg.recipient_id,
+        amount: typeof msg.amount === 'string' ? parseFloat(msg.amount) : msg.amount,
+        created_at: msg.created_at,
+        message_id: msg.message_id,
+        content: msg.content,
+        status: msg.status as MessageStatus,
+        transaction_signature: msg.transaction_signature,
         senderUsername: sender?.twitter_username || sender?.username || 'Unknown User',
         senderDisplayName: sender?.username || sender?.twitter_username || 'Unknown User',
         senderAvatarUrl: sender?.avatar_url || '',
         recipientUsername: recipient?.twitter_username || recipient?.username || 'Unknown User',
       };
     });
+
+    return formattedMessages;
   } catch (error) {
     console.error('Error in fetchMessages:', error);
     return [];
@@ -253,7 +262,7 @@ export const saveMessage = async (
           message_id: messageId,
           content,
           amount,
-          status: 'pending',
+          status: 'pending' as MessageStatus,
           transaction_signature: transactionSignature
         }
       ]);

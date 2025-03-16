@@ -1,12 +1,165 @@
+
 import * as anchor from "@coral-xyz/anchor";
 import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { IDL } from "@/assets/pay_to_reply";
-import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
-import { WalletContextState } from "@solana/wallet-adapter-react";
-import { AnchorWallet } from "@solana/wallet-adapter-react";
+import { AnchorWallet } from "@coral-xyz/anchor/dist/cjs/provider"; 
 import { BN } from "bn.js";
 import { saveMessage, updateMessageStatus } from './messageService';
+
+// Get the IDL from the project directory 
+const IDL: Idl = {
+  version: "0.1.0",
+  name: "pay_to_reply",
+  instructions: [
+    {
+      name: "createMessagePayment",
+      accounts: [
+        {
+          name: "sender",
+          isMut: true,
+          isSigner: true
+        },
+        {
+          name: "recipient",
+          isMut: false,
+          isSigner: false
+        },
+        {
+          name: "messageEscrow",
+          isMut: true,
+          isSigner: false
+        },
+        {
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false
+        }
+      ],
+      args: [
+        {
+          name: "amount",
+          type: "u64"
+        },
+        {
+          name: "messageId",
+          type: "string"
+        }
+      ]
+    },
+    {
+      name: "approveMessagePayment",
+      accounts: [
+        {
+          name: "sender",
+          isMut: false,
+          isSigner: false
+        },
+        {
+          name: "recipient",
+          isMut: true,
+          isSigner: true
+        },
+        {
+          name: "messageEscrow",
+          isMut: true,
+          isSigner: false
+        },
+        {
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false
+        }
+      ],
+      args: []
+    },
+    {
+      name: "rejectMessagePayment",
+      accounts: [
+        {
+          name: "sender",
+          isMut: true,
+          isSigner: false
+        },
+        {
+          name: "recipient",
+          isMut: false,
+          isSigner: true
+        },
+        {
+          name: "messageEscrow",
+          isMut: true,
+          isSigner: false
+        },
+        {
+          name: "systemProgram",
+          isMut: false,
+          isSigner: false
+        }
+      ],
+      args: []
+    }
+  ],
+  accounts: [
+    {
+      name: "MessageEscrow",
+      type: {
+        kind: "struct",
+        fields: [
+          {
+            name: "sender",
+            type: "publicKey"
+          },
+          {
+            name: "recipient",
+            type: "publicKey"
+          },
+          {
+            name: "amount",
+            type: "u64"
+          },
+          {
+            name: "messageId",
+            type: "string"
+          },
+          {
+            name: "status",
+            type: {
+              defined: "EscrowStatus"
+            }
+          },
+          {
+            name: "createdAt",
+            type: "i64"
+          },
+          {
+            name: "processedAt",
+            type: "i64"
+          }
+        ]
+      }
+    }
+  ],
+  types: [
+    {
+      name: "EscrowStatus",
+      type: {
+        kind: "enum",
+        variants: [
+          {
+            name: "Pending"
+          },
+          {
+            name: "Approved"
+          },
+          {
+            name: "Rejected"
+          }
+        ]
+      }
+    }
+  ],
+  errors: []
+};
 
 // Constants
 const PROGRAM_ID = new PublicKey("GPS2swU3p4XGWisAh3n4QWQuMvrQdfnz2eSwME2dp66A");
@@ -42,9 +195,9 @@ const getProvider = (wallet: AnchorWallet): anchor.AnchorProvider => {
 };
 
 // Helper function to get the program
-export const getProgram = async (wallet: AnchorWallet): Promise<anchor.Program<IDL>> => {
+export const getProgram = async (wallet: AnchorWallet): Promise<anchor.Program<typeof IDL>> => {
   const provider = getProvider(wallet);
-  const program = new anchor.Program<IDL>(IDL, PROGRAM_ID, provider);
+  const program = new anchor.Program(IDL, PROGRAM_ID, provider);
   return program;
 };
 
@@ -53,7 +206,7 @@ export const deriveMessageEscrowPDA = async (
     sender: PublicKey,
     recipient: PublicKey,
     messageId: string,
-    program: Program<IDL>
+    program: Program<typeof IDL>
 ): Promise<[PublicKey, number]> => {
     return await PublicKey.findProgramAddress(
         [
@@ -239,3 +392,4 @@ export const rejectMessagePayment = async (
     throw error;
   }
 };
+
