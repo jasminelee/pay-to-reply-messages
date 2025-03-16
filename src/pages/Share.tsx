@@ -94,7 +94,6 @@ const Share = () => {
     fetchUserProfile();
   }, [username]);
   
-  // Prevent sending messages to yourself
   const isSelfMessage = profile?.twitter_username === username;
   
   const handleSendMessage = async () => {
@@ -119,28 +118,46 @@ const Share = () => {
     setIsSending(true);
     
     try {
-      // Get the anchor wallet adapter from the wallet context
+      const messageId = crypto.randomUUID();
+      
       const wallet = getAnchorWallet();
       if (!wallet) {
         throw new Error('Failed to get wallet');
       }
       
-      // Get the recipient's address - assuming we have it in the recipient object
-      // You might need to modify this according to your data structure
       const recipientAddress = recipient.wallet_address;
       if (!recipientAddress) {
         throw new Error('Recipient wallet address not found');
       }
       
-      // Send the payment using the real anchor program
-      const tx = await sendPayment(wallet, recipientAddress, amount);
+      const tx = await sendPayment(wallet, recipientAddress, amount, messageId);
+      
+      const { data: messageData, error: messageError } = await supabase
+        .from('messages')
+        .insert({
+          sender_id: user?.id,
+          recipient_id: recipient.id,
+          content: message,
+          amount: amount,
+          status: 'pending',
+          transaction_signature: tx,
+          message_id: messageId
+        })
+        .select()
+        .single();
+      
+      if (messageError) {
+        console.error('Error saving message:', messageError);
+        throw new Error('Failed to save message');
+      }
       
       toast({
-        title: 'Transaction Successful',
+        title: 'Message Sent',
         description: `Your message to @${recipient.twitter_username} has been sent with ${formatAmount(amount)}.`,
       });
       
       console.log('Transaction signature:', tx);
+      console.log('Message saved:', messageData);
       
       setIsSending(false);
       setMessage('');
@@ -174,7 +191,6 @@ const Share = () => {
     navigate('/dashboard');
   };
 
-  // Render success state
   if (showSuccess) {
     return (
       <Layout>
@@ -431,7 +447,6 @@ const Share = () => {
         )}
       </div>
 
-      {/* Wallet Selection Dialog */}
       <Dialog open={isWalletDialogOpen} onOpenChange={setIsWalletDialogOpen}>
         <DialogContent className="sm:max-w-md neo-glass">
           <DialogHeader>

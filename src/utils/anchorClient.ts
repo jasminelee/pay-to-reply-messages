@@ -21,11 +21,12 @@ export const createAnchorProvider = (wallet: any) => {
 };
 
 // Create a message payment via the anchor program (puts SOL in escrow)
-export const createMessagePayment = async (
+// Renamed from createMessagePayment to sendPayment to match the import in Share.tsx
+export const sendPayment = async (
   wallet: any,
   recipientAddress: string,
   amountInSOL: number,
-  messageId: string
+  messageId: string = crypto.randomUUID()
 ): Promise<string> => {
   try {
     // Create the anchor provider with the wallet
