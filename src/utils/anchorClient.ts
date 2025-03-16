@@ -1,10 +1,15 @@
-
 import * as anchor from "@coral-xyz/anchor";
 import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { AnchorWallet } from "@coral-xyz/anchor/dist/cjs/provider"; 
 import { BN } from "bn.js";
 import { saveMessage, updateMessageStatus } from './messageService';
+
+// AnchorWallet interface definition
+export interface AnchorWallet {
+  publicKey: PublicKey;
+  signTransaction: (transaction: anchor.web3.Transaction) => Promise<anchor.web3.Transaction>;
+  signAllTransactions: (transactions: anchor.web3.Transaction[]) => Promise<anchor.web3.Transaction[]>;
+}
 
 // Get the IDL from the project directory 
 const IDL: Idl = {
@@ -393,3 +398,5 @@ export const rejectMessagePayment = async (
   }
 };
 
+// Add sendPayment as an alias for createMessagePayment for backward compatibility
+export const sendPayment = createMessagePayment;

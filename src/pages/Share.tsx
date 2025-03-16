@@ -1,4 +1,3 @@
-
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { formatAmount } from '@/utils/mockData';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { sendPayment } from '@/utils/anchorClient';
+import { createMessagePayment } from '@/utils/anchorClient';
 
 const Share = () => {
   const { username } = useParams<{ username: string }>();
@@ -130,7 +129,7 @@ const Share = () => {
         throw new Error('Recipient wallet address not found');
       }
       
-      const tx = await sendPayment(wallet, recipientAddress, amount, messageId);
+      const tx = await createMessagePayment(wallet, recipientAddress, amount, message);
       
       // Save the message to Supabase after successful blockchain transaction
       const { data: messageData, error: messageError } = await supabase
