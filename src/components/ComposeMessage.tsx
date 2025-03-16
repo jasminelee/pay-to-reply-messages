@@ -1,4 +1,3 @@
-
 import { FormEvent, useState } from 'react';
 import { Send, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,15 +25,16 @@ const USER_ADDRESSES: Record<string, string> = {
   'mikezhang': 'DM5gyrYPj5jfRGKT6BbLJVrYxpJ9pZMWuP1gCvxBMrcg',
   'sarahkim': 'CxDc845MD8jxYbGjUCjQ5GHVH1Ex4UEwxK6JmGGZT7vF',
   'willsmith': 'BN3gGhxPcn2YxFL1QZsmPqDf3WrDMEZtjzdFm4SJzgdT',
-  'taylorj': 'Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS'
+  'taylorj': 'Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS',
+  'jasminedev83632': 'YpKSaahsrmwAnpY4b2mBKf1BFdaw5L4WL1EvZ5ThzZ'
 };
 
 const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: ComposeMessageProps) => {
-  const [recipient, setRecipient] = useState(preselectedRecipient || '');
-  const [message, setMessage] = useState('');
-  const [amount, setAmount] = useState(0.5);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { isConnected, getAnchorWallet, balance } = useWallet();
+  const [recipient, setRecipient] = useState<string>(preselectedRecipient || '');
+  const [message, setMessage] = useState<string>('');
+  const [amount, setAmount] = useState<number>(0.5);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const { isConnected, getAnchorWallet, balance, refreshBalance } = useWallet();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -65,6 +65,9 @@ const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: Compos
       });
       return;
     }
+    
+    // Refresh wallet balance before checking
+    await refreshBalance();
     
     // Check if the wallet has enough balance (with a small buffer for fees)
     if (balance < amount + 0.01) {
@@ -122,19 +125,31 @@ const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: Compos
       
       // Improved error handling
       let errorMessage = 'Failed to send payment. Please try again.';
+      let errorTitle = 'Transaction Failed';
       
       if (error instanceof Error) {
-        if (error.message.includes('Insufficient funds')) {
+        const errorText = error.message;
+        
+        if (errorText.includes('Insufficient funds')) {
+          errorTitle = 'Insufficient Funds';
           errorMessage = 'You don\'t have enough SOL in your wallet. Please add more funds and try again.';
-        } else if (error.message.includes('User rejected')) {
+        } else if (errorText.includes('User rejected')) {
+          errorTitle = 'Transaction Rejected';
           errorMessage = 'Transaction was rejected by your wallet.';
+        } else if (errorText.includes('seeds constraint') || errorText.includes('ConstraintSeeds')) {
+          errorTitle = 'Technical Error';
+          errorMessage = 'There was a technical issue with the transaction. Please try again with a different message or amount.';
+        } else if (errorText.includes('network error')) {
+          errorTitle = 'Network Error';
+          errorMessage = 'Connection to the blockchain failed. Please check your internet connection and try again.';
         } else {
-          errorMessage = error.message;
+          // For other errors, use the original message but clean it up
+          errorMessage = errorText.replace('Error: ', '');
         }
       }
       
       toast({
-        title: 'Transaction Failed',
+        title: errorTitle,
         description: errorMessage,
         variant: 'destructive',
       });

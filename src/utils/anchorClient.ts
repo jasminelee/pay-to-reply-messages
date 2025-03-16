@@ -1,4 +1,3 @@
-
 import * as anchor from "@coral-xyz/anchor";
 import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram, Transaction, VersionedTransaction, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -189,8 +188,9 @@ export enum EscrowStatus {
 
 // Helper function to get the provider
 const getProvider = (wallet: AnchorWallet): anchor.AnchorProvider => {
+  // Use Sonic DevNet instead of Solana Devnet to match the connection in WalletContext
   const connection = new anchor.web3.Connection(
-    anchor.web3.clusterApiUrl("devnet")
+    "https://api.testnet.sonic.game", "confirmed"
   );
   const provider = new anchor.AnchorProvider(
     connection,
@@ -214,12 +214,13 @@ export const deriveMessageEscrowPDA = async (
     messageId: string,
     program: Program<typeof IDL>
 ): Promise<[PublicKey, number]> => {
+    // The Anchor program uses only two seeds:
+    // 1. The string "msg" as a prefix
+    // 2. The first 4 bytes of the message ID
     return await PublicKey.findProgramAddress(
         [
-            anchor.utils.bytes.utf8.encode("message-escrow"),
-            sender.toBuffer(),
-            recipient.toBuffer(),
-            anchor.utils.bytes.utf8.encode(messageId),
+            Buffer.from("msg"),
+            Buffer.from(messageId.slice(0, 4))
         ],
         program.programId
     );
@@ -242,8 +243,14 @@ const checkSufficientBalance = async (
     const estimatedFee = 0.01 * LAMPORTS_PER_SOL;
     const totalRequired = requiredLamports + estimatedFee;
     
+    console.log(`Wallet address: ${wallet.publicKey.toString()}`);
+    console.log(`Connection endpoint: ${connection.rpcEndpoint}`);
     console.log(`Wallet balance: ${walletBalance / LAMPORTS_PER_SOL} SOL`);
-    console.log(`Required amount (including fees): ${totalRequired / LAMPORTS_PER_SOL} SOL`);
+    console.log(`Required amount: ${requiredAmount} SOL`);
+    console.log(`Required amount in lamports: ${requiredLamports}`);
+    console.log(`Estimated fee: ${estimatedFee / LAMPORTS_PER_SOL} SOL`);
+    console.log(`Total required (including fees): ${totalRequired / LAMPORTS_PER_SOL} SOL`);
+    console.log(`Has sufficient balance: ${walletBalance >= totalRequired}`);
     
     return walletBalance >= totalRequired;
   } catch (error) {
@@ -268,38 +275,39 @@ export const createMessagePayment = async (
       throw new Error('Insufficient funds. Please add more SOL to your wallet to complete this transaction.');
     }
 
-    // Generate a unique message ID (timestamp + random string)
-    const messageId = `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
-    console.log('Full message ID:', messageId);
+    // Convert recipient string to PublicKey for validation
+    const recipientPublicKey = new PublicKey(recipientAddress);
     
-    // Use only first 4 chars for the blockchain seed
-    const shortMessageId = messageId.slice(0, 4);
-    console.log('Using shortened message ID for seed:', shortMessageId);
-
+    // Generate a simple message ID that will be used for the PDA seed
+    // Using a simple 4-character ID for consistency with the program's expectations
+    const messageId = `m${Date.now().toString(36).slice(-3)}`;
+    console.log('Message ID:', messageId);
+    
     // Connect to the program
     const program = await getProgram(wallet);
     
     // Convert SOL amount to lamports
     const lamports = amount * LAMPORTS_PER_SOL;
     
-    // Convert recipient string to PublicKey
-    const recipientPublicKey = new PublicKey(recipientAddress);
-    
     // Derive the PDA for the escrow account
-    const [escrowPDA] = await deriveMessageEscrowPDA(
+    const [escrowPDA, bump] = await deriveMessageEscrowPDA(
       wallet.publicKey, 
       recipientPublicKey,
-      shortMessageId,
+      messageId,
       program
     );
     
+    console.log('Sender public key:', wallet.publicKey.toBase58());
+    console.log('Recipient public key:', recipientPublicKey.toBase58());
+    console.log('Message ID (used as seed):', messageId);
     console.log('Escrow PDA:', escrowPDA.toBase58());
+    console.log('PDA bump:', bump);
     
     // Submit the transaction
     const tx = await program.methods
       .createMessagePayment(
         new BN(lamports),
-        shortMessageId
+        messageId
       )
       .accounts({
         sender: wallet.publicKey,
@@ -327,12 +335,26 @@ export const createMessagePayment = async (
     
     // Improve error handling for specific error cases
     if (error instanceof Error) {
-      if (error.message.includes('insufficient funds') || 
-          error.message.includes('attempt to debit an account') ||
-          error.message.includes('Insufficient funds')) {
+      const errorMessage = error.message;
+      
+      if (errorMessage.includes('insufficient funds') || 
+          errorMessage.includes('attempt to debit an account') ||
+          errorMessage.includes('Insufficient funds')) {
+        console.error('Wallet balance check failed. Please check console logs for details.');
         throw new Error('Insufficient funds. Please add more SOL to your wallet to complete this transaction.');
-      } else if (error.message.includes('User rejected')) {
+      } else if (errorMessage.includes('User rejected')) {
         throw new Error('Transaction was rejected by the wallet.');
+      } else if (errorMessage.includes('network error')) {
+        throw new Error('Network error. Please check your connection to the Sonic DevNet.');
+      } else if (errorMessage.includes('seeds constraint was violated')) {
+        console.error('Seeds constraint violation. This could be due to an issue with the PDA derivation.');
+        throw new Error('Transaction failed due to a technical issue with the escrow account. Please try again with a different message or amount.');
+      } else if (errorMessage.includes('ConstraintSeeds')) {
+        console.error('Seeds constraint error from Anchor program.');
+        throw new Error('Transaction failed due to a technical issue with the escrow account. Please try again.');
+      } else {
+        // For any other errors, pass through the original message
+        throw new Error(`Transaction failed: ${errorMessage}`);
       }
     }
     
@@ -349,10 +371,6 @@ export const approveMessagePayment = async (
   try {
     console.log(`Approving message payment, message ID: ${messageId}`);
     
-    // Use only first 4 chars for the blockchain seed (same as when creating)
-    const shortMessageId = messageId.slice(0, 4);
-    console.log('Using shortened message ID for seed:', shortMessageId);
-
     // Connect to the program
     const program = await getProgram(wallet);
     
@@ -360,14 +378,18 @@ export const approveMessagePayment = async (
     const senderPublicKey = new PublicKey(senderAddress);
     
     // Derive the PDA for the escrow account
-    const [escrowPDA] = await deriveMessageEscrowPDA(
+    const [escrowPDA, bump] = await deriveMessageEscrowPDA(
       senderPublicKey,
       wallet.publicKey,
-      shortMessageId,
+      messageId,
       program
     );
     
+    console.log('Sender public key:', senderPublicKey.toBase58());
+    console.log('Recipient public key:', wallet.publicKey.toBase58());
+    console.log('Message ID (used as seed):', messageId);
     console.log('Escrow PDA:', escrowPDA.toBase58());
+    console.log('PDA bump:', bump);
     
     // Submit the transaction
     const tx = await program.methods
@@ -388,6 +410,19 @@ export const approveMessagePayment = async (
     return tx;
   } catch (error) {
     console.error('Error in approveMessagePayment:', error);
+    
+    // Improve error handling
+    if (error instanceof Error) {
+      const errorMessage = error.message;
+      
+      if (errorMessage.includes('ConstraintSeeds')) {
+        console.error('Seeds constraint error from Anchor program.');
+        throw new Error('Transaction failed due to a technical issue with the escrow account. Please try again.');
+      } else {
+        throw new Error(`Transaction failed: ${errorMessage}`);
+      }
+    }
+    
     throw error;
   }
 };
@@ -401,10 +436,6 @@ export const rejectMessagePayment = async (
   try {
     console.log(`Rejecting message payment, message ID: ${messageId}`);
     
-    // Use only first 4 chars for the blockchain seed (same as when creating)
-    const shortMessageId = messageId.slice(0, 4);
-    console.log('Using shortened message ID for seed:', shortMessageId);
-
     // Connect to the program
     const program = await getProgram(wallet);
     
@@ -412,14 +443,18 @@ export const rejectMessagePayment = async (
     const senderPublicKey = new PublicKey(senderAddress);
     
     // Derive the PDA for the escrow account
-    const [escrowPDA] = await deriveMessageEscrowPDA(
+    const [escrowPDA, bump] = await deriveMessageEscrowPDA(
       senderPublicKey,
       wallet.publicKey,
-      shortMessageId,
+      messageId,
       program
     );
     
+    console.log('Sender public key:', senderPublicKey.toBase58());
+    console.log('Recipient public key:', wallet.publicKey.toBase58());
+    console.log('Message ID (used as seed):', messageId);
     console.log('Escrow PDA:', escrowPDA.toBase58());
+    console.log('PDA bump:', bump);
     
     // Submit the transaction
     const tx = await program.methods
@@ -440,6 +475,19 @@ export const rejectMessagePayment = async (
     return tx;
   } catch (error) {
     console.error('Error in rejectMessagePayment:', error);
+    
+    // Improve error handling
+    if (error instanceof Error) {
+      const errorMessage = error.message;
+      
+      if (errorMessage.includes('ConstraintSeeds')) {
+        console.error('Seeds constraint error from Anchor program.');
+        throw new Error('Transaction failed due to a technical issue with the escrow account. Please try again.');
+      } else {
+        throw new Error(`Transaction failed: ${errorMessage}`);
+      }
+    }
+    
     throw error;
   }
 };

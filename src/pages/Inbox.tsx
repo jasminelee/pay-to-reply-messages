@@ -1,6 +1,5 @@
-
 import { useState, useEffect, useCallback } from 'react';
-import { Filter, Search } from 'lucide-react';
+import { Filter, Search, RefreshCw, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -14,8 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Layout from '@/components/Layout';
 import MessageCard from '@/components/MessageCard';
 import { useWallet } from '@/contexts/WalletContext';
-import { useToast } from '@/hooks/use-toast';
-import { fetchMessages, MessageData } from '@/utils/messageService';
+import { useToast } from '@/components/ui/use-toast';
+import { fetchMessages, MessageData, fixDatabaseIssues } from '@/utils/messageService';
 
 const statusOptions = [
   { value: 'all', label: 'All' },
@@ -44,6 +43,8 @@ const Inbox = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredMessages, setFilteredMessages] = useState<MessageData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isFixing, setIsFixing] = useState(false);
   
   // Load messages from Supabase
   const loadMessages = useCallback(async () => {
@@ -51,6 +52,7 @@ const Inbox = () => {
     
     setIsLoading(true);
     try {
+      console.log('Loading messages for wallet:', walletAddress);
       const [received, sent] = await Promise.all([
         fetchMessages(walletAddress, 'received'),
         fetchMessages(walletAddress, 'sent')
@@ -58,6 +60,7 @@ const Inbox = () => {
       
       setReceivedMessages(received);
       setSentMessages(sent);
+      console.log(`Loaded ${received.length} received and ${sent.length} sent messages`);
     } catch (error) {
       console.error('Error loading messages:', error);
       toast({
@@ -67,6 +70,7 @@ const Inbox = () => {
       });
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, [walletAddress, isConnected, toast]);
   
@@ -114,6 +118,47 @@ const Inbox = () => {
     setFilteredMessages(messages);
   }, [tab, statusFilter, sortBy, searchQuery, receivedMessages, sentMessages]);
 
+  // Refresh messages manually
+  const handleRefresh = () => {
+    if (isRefreshing || isLoading) return;
+    
+    setIsRefreshing(true);
+    loadMessages();
+    
+    toast({
+      title: "Refreshing messages",
+      description: "Fetching your latest messages...",
+    });
+  };
+
+  // Fix database issues
+  const handleFixDatabase = async () => {
+    if (isFixing) return;
+    
+    setIsFixing(true);
+    try {
+      await fixDatabaseIssues();
+      
+      toast({
+        title: "Database Fix Attempted",
+        description: "Check the console for details on what was fixed.",
+      });
+      
+      // Refresh messages after fixing
+      loadMessages();
+    } catch (error) {
+      console.error('Error fixing database:', error);
+      
+      toast({
+        title: "Fix Failed",
+        description: "There was a problem fixing the database. Check the console for details.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsFixing(false);
+    }
+  };
+
   // Refresh messages after approval/rejection
   const refreshMessages = () => {
     loadMessages();
@@ -131,10 +176,34 @@ const Inbox = () => {
         
         <Tabs defaultValue="received" className="space-y-4" onValueChange={setTab}>
           <div className="flex flex-col sm:flex-row justify-between gap-4">
-            <TabsList className="bg-muted/50 h-10">
-              <TabsTrigger value="received" className="px-4">Received</TabsTrigger>
-              <TabsTrigger value="sent" className="px-4">Sent</TabsTrigger>
-            </TabsList>
+            <div className="flex items-center gap-2">
+              <TabsList className="bg-muted/50 h-10">
+                <TabsTrigger value="received" className="px-4">Received</TabsTrigger>
+                <TabsTrigger value="sent" className="px-4">Sent</TabsTrigger>
+              </TabsList>
+              
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={handleRefresh} 
+                disabled={isRefreshing || isLoading}
+                className="h-10 w-10"
+                title="Refresh Messages"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={handleFixDatabase} 
+                disabled={isFixing}
+                className="h-10 w-10"
+                title="Fix Database Issues"
+              >
+                <Database className={`h-4 w-4 ${isFixing ? 'animate-pulse' : ''}`} />
+              </Button>
+            </div>
             
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative w-full sm:w-64">

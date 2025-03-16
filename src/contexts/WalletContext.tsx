@@ -45,6 +45,7 @@ interface WalletContextType {
   disconnectWallet: () => void;
   isSupportedWalletInstalled: (adapter: string) => boolean;
   getAnchorWallet: () => BrowserWalletAdapter | null;
+  refreshBalance: () => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -87,9 +88,16 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       const balanceInLamports = await connection.getBalance(publicKey);
       const balanceInSOL = balanceInLamports / LAMPORTS_PER_SOL;
       setBalance(balanceInSOL);
+      console.log(`Fetched balance for ${address}: ${balanceInSOL} SOL`);
     } catch (error) {
       console.error('Failed to fetch balance:', error);
       setBalance(0);
+    }
+  };
+
+  const refreshBalance = async () => {
+    if (isConnected && walletAddress) {
+      await fetchBalance(walletAddress);
     }
   };
 
@@ -278,7 +286,8 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
     connectWallet,
     disconnectWallet,
     isSupportedWalletInstalled,
-    getAnchorWallet
+    getAnchorWallet,
+    refreshBalance
   };
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
