@@ -225,6 +225,33 @@ export const deriveMessageEscrowPDA = async (
     );
 };
 
+// Helper function to check if wallet has sufficient balance
+const checkSufficientBalance = async (
+  wallet: AnchorWallet,
+  requiredAmount: number
+): Promise<boolean> => {
+  try {
+    const provider = getProvider(wallet);
+    const connection = provider.connection;
+    const walletBalance = await connection.getBalance(wallet.publicKey);
+    
+    // Convert SOL amount to lamports for comparison
+    const requiredLamports = requiredAmount * LAMPORTS_PER_SOL;
+    
+    // Add estimated fee and rent for the transaction (0.01 SOL as buffer)
+    const estimatedFee = 0.01 * LAMPORTS_PER_SOL;
+    const totalRequired = requiredLamports + estimatedFee;
+    
+    console.log(`Wallet balance: ${walletBalance / LAMPORTS_PER_SOL} SOL`);
+    console.log(`Required amount (including fees): ${totalRequired / LAMPORTS_PER_SOL} SOL`);
+    
+    return walletBalance >= totalRequired;
+  } catch (error) {
+    console.error('Error checking wallet balance:', error);
+    return false;
+  }
+};
+
 // Function to create a message payment
 export const createMessagePayment = async (
   wallet: AnchorWallet,
@@ -234,6 +261,12 @@ export const createMessagePayment = async (
 ): Promise<string | undefined> => {
   try {
     console.log(`Creating message payment of ${amount} SOL to ${recipientAddress} for message: ${messageContent.slice(0, 30)}...`);
+
+    // Check if wallet has sufficient balance before proceeding
+    const hasSufficientBalance = await checkSufficientBalance(wallet, amount);
+    if (!hasSufficientBalance) {
+      throw new Error('Insufficient funds. Please add more SOL to your wallet to complete this transaction.');
+    }
 
     // Generate a unique message ID (timestamp + random string)
     const messageId = `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
@@ -291,6 +324,18 @@ export const createMessagePayment = async (
     return tx;
   } catch (error) {
     console.error('Error in createMessagePayment:', error);
+    
+    // Improve error handling for specific error cases
+    if (error instanceof Error) {
+      if (error.message.includes('insufficient funds') || 
+          error.message.includes('attempt to debit an account') ||
+          error.message.includes('Insufficient funds')) {
+        throw new Error('Insufficient funds. Please add more SOL to your wallet to complete this transaction.');
+      } else if (error.message.includes('User rejected')) {
+        throw new Error('Transaction was rejected by the wallet.');
+      }
+    }
+    
     throw error;
   }
 };

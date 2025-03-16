@@ -1,3 +1,4 @@
+
 import { FormEvent, useState } from 'react';
 import { Send, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,7 @@ const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: Compos
   const [message, setMessage] = useState('');
   const [amount, setAmount] = useState(0.5);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { isConnected, getAnchorWallet } = useWallet();
+  const { isConnected, getAnchorWallet, balance } = useWallet();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -60,6 +61,16 @@ const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: Compos
       toast({
         title: 'Message Required',
         description: 'Please enter a message to send.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    // Check if the wallet has enough balance (with a small buffer for fees)
+    if (balance < amount + 0.01) {
+      toast({
+        title: 'Insufficient Balance',
+        description: `Your wallet balance (${balance.toFixed(2)} SOL) is too low for this transaction. You need at least ${(amount + 0.01).toFixed(2)} SOL.`,
         variant: 'destructive',
       });
       return;
@@ -108,9 +119,23 @@ const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: Compos
       }
     } catch (error) {
       console.error('Error sending payment:', error);
+      
+      // Improved error handling
+      let errorMessage = 'Failed to send payment. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Insufficient funds')) {
+          errorMessage = 'You don\'t have enough SOL in your wallet. Please add more funds and try again.';
+        } else if (error.message.includes('User rejected')) {
+          errorMessage = 'Transaction was rejected by your wallet.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: 'Transaction Failed',
-        description: `Failed to send payment. Please try again. ${error instanceof Error ? error.message : ''}`,
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
