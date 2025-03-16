@@ -18,7 +18,7 @@ pub mod pay_to_reply {
         message_escrow.sender = ctx.accounts.sender.key();
         message_escrow.recipient = ctx.accounts.recipient.key();
         message_escrow.amount = amount;
-        message_escrow.message_id = message_id;
+        message_escrow.message_id = message_id.clone();
         message_escrow.status = EscrowStatus::Pending;
         message_escrow.created_at = Clock::get()?.unix_timestamp;
 
@@ -73,18 +73,20 @@ pub mod pay_to_reply {
         message_escrow.processed_at = Clock::get()?.unix_timestamp;
 
         // Get the amount stored in the escrow account
-        let escrow_balance = **ctx.accounts.message_escrow.to_account_info().lamports.borrow();
+        let escrow_info = ctx.accounts.message_escrow.to_account_info();
+        let escrow_balance = **escrow_info.lamports.borrow();
         
         // Keep some lamports for rent exemption (this is a simplification, in production
         // you'd want to calculate exact rent exemption)
         let rent = Rent::get()?;
-        let rent_exemption = rent.minimum_balance(message_escrow.to_account_info().data_len());
+        let data_len = escrow_info.data_len();
+        let rent_exemption = rent.minimum_balance(data_len);
         
         // Calculate amount to transfer (balance minus rent exemption)
         let transfer_amount = escrow_balance - rent_exemption;
 
         // Transfer SOL from escrow to recipient
-        **ctx.accounts.message_escrow.to_account_info().try_borrow_mut_lamports()? -= transfer_amount;
+        **escrow_info.try_borrow_mut_lamports()? -= transfer_amount;
         **ctx.accounts.recipient.to_account_info().try_borrow_mut_lamports()? += transfer_amount;
 
         msg!(
@@ -119,17 +121,19 @@ pub mod pay_to_reply {
         message_escrow.processed_at = Clock::get()?.unix_timestamp;
 
         // Get the amount stored in the escrow account
-        let escrow_balance = **ctx.accounts.message_escrow.to_account_info().lamports.borrow();
+        let escrow_info = ctx.accounts.message_escrow.to_account_info();
+        let escrow_balance = **escrow_info.lamports.borrow();
         
         // Keep some lamports for rent exemption
         let rent = Rent::get()?;
-        let rent_exemption = rent.minimum_balance(message_escrow.to_account_info().data_len());
+        let data_len = escrow_info.data_len();
+        let rent_exemption = rent.minimum_balance(data_len);
         
         // Calculate amount to transfer (balance minus rent exemption)
         let transfer_amount = escrow_balance - rent_exemption;
 
         // Transfer SOL from escrow back to sender
-        **ctx.accounts.message_escrow.to_account_info().try_borrow_mut_lamports()? -= transfer_amount;
+        **escrow_info.try_borrow_mut_lamports()? -= transfer_amount;
         **ctx.accounts.sender.to_account_info().try_borrow_mut_lamports()? += transfer_amount;
 
         msg!(
@@ -160,10 +164,8 @@ pub struct CreateMessagePayment<'info> {
         payer = sender,
         space = MessageEscrow::space(),
         seeds = [
-            b"message_escrow",
-            sender.key().as_ref(),
-            recipient.key().as_ref(),
-            message_id.as_bytes()
+            b"msg",
+            message_id[..4].as_bytes()
         ],
         bump
     )]
@@ -189,10 +191,8 @@ pub struct ProcessMessagePayment<'info> {
     #[account(
         mut,
         seeds = [
-            b"message_escrow",
-            sender.key().as_ref(),
-            recipient.key().as_ref(),
-            message_escrow.message_id.as_bytes()
+            b"msg",
+            message_escrow.message_id[..4].as_bytes()
         ],
         bump,
         constraint = message_escrow.sender == sender.key() @ EscrowError::InvalidSender,
@@ -210,6 +210,16 @@ pub enum EscrowStatus {
     Pending,
     Approved,
     Rejected,
+}
+
+impl std::fmt::Display for EscrowStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EscrowStatus::Pending => write!(f, "Pending"),
+            EscrowStatus::Approved => write!(f, "Approved"),
+            EscrowStatus::Rejected => write!(f, "Rejected"),
+        }
+    }
 }
 
 /// Escrow account data structure
