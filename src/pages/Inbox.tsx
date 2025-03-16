@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Filter, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Layout from '@/components/Layout';
 import MessageCard from '@/components/MessageCard';
-import { Message, currentUser, getMessagesByUser } from '@/utils/mockData';
+import { useWallet } from '@/contexts/WalletContext';
+import { useToast } from '@/hooks/use-toast';
+import { fetchMessages, MessageData } from '@/utils/messageService';
 
 const statusOptions = [
   { value: 'all', label: 'All' },
@@ -30,15 +32,50 @@ const sortOptions = [
 ];
 
 const Inbox = () => {
-  const receivedMessages = getMessagesByUser(currentUser.id, 'received');
-  const sentMessages = getMessagesByUser(currentUser.id, 'sent');
+  const { walletAddress, isConnected } = useWallet();
+  const { toast } = useToast();
+  
+  const [receivedMessages, setReceivedMessages] = useState<MessageData[]>([]);
+  const [sentMessages, setSentMessages] = useState<MessageData[]>([]);
   
   const [tab, setTab] = useState('received');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredMessages, setFilteredMessages] = useState<Message[]>([]);
+  const [filteredMessages, setFilteredMessages] = useState<MessageData[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   
+  // Load messages from Supabase
+  const loadMessages = useCallback(async () => {
+    if (!isConnected || !walletAddress) return;
+    
+    setIsLoading(true);
+    try {
+      const [received, sent] = await Promise.all([
+        fetchMessages(walletAddress, 'received'),
+        fetchMessages(walletAddress, 'sent')
+      ]);
+      
+      setReceivedMessages(received);
+      setSentMessages(sent);
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      toast({
+        title: "Error loading messages",
+        description: "There was a problem loading your messages. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [walletAddress, isConnected, toast]);
+  
+  // Initial load
+  useEffect(() => {
+    loadMessages();
+  }, [loadMessages]);
+  
+  // Filter and sort messages
   useEffect(() => {
     // Get base messages depending on tab
     let messages = tab === 'received' ? receivedMessages : sentMessages;
@@ -53,9 +90,8 @@ const Inbox = () => {
       const query = searchQuery.toLowerCase();
       messages = messages.filter(
         msg => 
-          msg.content.toLowerCase().includes(query) || 
-          msg.senderUsername.toLowerCase().includes(query) ||
-          msg.senderDisplayName.toLowerCase().includes(query)
+          (msg.content?.toLowerCase().includes(query)) || 
+          (msg.senderUsername?.toLowerCase().includes(query))
       );
     }
     
@@ -63,13 +99,13 @@ const Inbox = () => {
     messages = [...messages].sort((a, b) => {
       switch (sortBy) {
         case 'newest':
-          return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         case 'oldest':
-          return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         case 'highest':
-          return b.paymentAmount - a.paymentAmount;
+          return parseFloat(b.amount as any) - parseFloat(a.amount as any);
         case 'lowest':
-          return a.paymentAmount - b.paymentAmount;
+          return parseFloat(a.amount as any) - parseFloat(b.amount as any);
         default:
           return 0;
       }
@@ -77,6 +113,11 @@ const Inbox = () => {
     
     setFilteredMessages(messages);
   }, [tab, statusFilter, sortBy, searchQuery, receivedMessages, sentMessages]);
+
+  // Refresh messages after approval/rejection
+  const refreshMessages = () => {
+    loadMessages();
+  };
 
   return (
     <Layout>
@@ -136,7 +177,11 @@ const Inbox = () => {
           </div>
           
           <TabsContent value="received" className="space-y-4 m-0 pt-2 animate-fade-in">
-            {filteredMessages.length === 0 ? (
+            {isLoading ? (
+              <div className="glass-panel rounded-lg p-8 text-center">
+                <p className="text-muted-foreground animate-pulse">Loading messages...</p>
+              </div>
+            ) : filteredMessages.length === 0 ? (
               <div className="glass-panel rounded-lg p-8 text-center">
                 <p className="text-muted-foreground">No messages found.</p>
                 {statusFilter !== 'all' && (
@@ -149,7 +194,10 @@ const Inbox = () => {
               <div className="grid grid-cols-1 gap-4">
                 {filteredMessages.map((message, index) => (
                   <div key={message.id} className="animate-scale-in" style={{animationDelay: `${index * 50}ms`}}>
-                    <MessageCard message={message} />
+                    <MessageCard 
+                      message={message} 
+                      onMessageUpdated={refreshMessages}
+                    />
                   </div>
                 ))}
               </div>
@@ -157,7 +205,11 @@ const Inbox = () => {
           </TabsContent>
           
           <TabsContent value="sent" className="space-y-4 m-0 pt-2 animate-fade-in">
-            {filteredMessages.length === 0 ? (
+            {isLoading ? (
+              <div className="glass-panel rounded-lg p-8 text-center">
+                <p className="text-muted-foreground animate-pulse">Loading messages...</p>
+              </div>
+            ) : filteredMessages.length === 0 ? (
               <div className="glass-panel rounded-lg p-8 text-center">
                 <p className="text-muted-foreground">No sent messages found.</p>
                 {statusFilter !== 'all' && (
@@ -170,7 +222,10 @@ const Inbox = () => {
               <div className="grid grid-cols-1 gap-4">
                 {filteredMessages.map((message, index) => (
                   <div key={message.id} className="animate-scale-in" style={{animationDelay: `${index * 50}ms`}}>
-                    <MessageCard message={message} />
+                    <MessageCard 
+                      message={message}
+                      onMessageUpdated={refreshMessages}
+                    />
                   </div>
                 ))}
               </div>

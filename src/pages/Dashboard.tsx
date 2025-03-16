@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Clock, MessageSquare, Repeat, Wallet, Zap, Shield, ChevronRight } from 'lucide-react';
@@ -12,14 +13,19 @@ import { formatAmount } from '@/utils/mockData';
 import { useWallet } from '@/contexts/WalletContext';
 import { useAuth } from '@/hooks/useAuth';
 import { AtSign } from 'lucide-react';
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { fetchMessages, getMessageStats, MessageData } from '@/utils/messageService';
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const { balance, walletAddress, isConnected } = useWallet();
   const { user, profile } = useAuth();
+  const { toast } = useToast();
   
-  // Use real wallet address instead of mock user ID
-  const userId = walletAddress || '';
+  // State for real messages and stats
+  const [receivedMessages, setReceivedMessages] = useState<MessageData[]>([]);
+  const [sentMessages, setSentMessages] = useState<MessageData[]>([]);
+  const [activeTab, setActiveTab] = useState('received');
+  const [isLoading, setIsLoading] = useState(false);
   
   // State for transaction/message stats
   const [messageStats, setMessageStats] = useState({
@@ -34,14 +40,44 @@ const Dashboard = () => {
   
   const [pendingTransactions, setPendingTransactions] = useState(0);
   
+  // Fetch messages and stats when wallet is connected
   useEffect(() => {
-    // If we have a real wallet address, we could fetch actual message stats
-    // from our backend or blockchain in the future
-    // For now, keep the UI showing zeros
-    if (isConnected && walletAddress) {
-      // This would be where we fetch real message stats
-    }
-  }, [isConnected, walletAddress]);
+    const loadMessagesAndStats = async () => {
+      if (isConnected && walletAddress) {
+        setIsLoading(true);
+        try {
+          // Fetch messages
+          const [received, sent, stats] = await Promise.all([
+            fetchMessages(walletAddress, 'received'),
+            fetchMessages(walletAddress, 'sent'),
+            getMessageStats(walletAddress)
+          ]);
+          
+          setReceivedMessages(received);
+          setSentMessages(sent);
+          setMessageStats(stats);
+          
+          // Calculate pending transactions amount
+          const pendingAmount = received
+            .filter(msg => msg.status === 'pending')
+            .reduce((sum, msg) => sum + parseFloat(msg.amount as any), 0);
+            
+          setPendingTransactions(pendingAmount);
+        } catch (error) {
+          console.error('Error loading messages:', error);
+          toast({
+            title: "Error loading messages",
+            description: "There was a problem loading your messages. Please try again.",
+            variant: "destructive"
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+    
+    loadMessagesAndStats();
+  }, [isConnected, walletAddress, toast]);
   
   return (
     <Layout>
@@ -129,13 +165,19 @@ const Dashboard = () => {
           <div className="space-y-4 col-span-4">
             <h2 className="text-xl font-semibold tracking-tight mb-4">Recent Messages</h2>
             
-            <Tabs defaultValue="received">
+            <Tabs defaultValue="received" onValueChange={setActiveTab}>
               <TabsList className="bg-secondary mb-4">
                 <TabsTrigger value="received">Received</TabsTrigger>
                 <TabsTrigger value="sent">Sent</TabsTrigger>
               </TabsList>
               <TabsContent value="received">
-                {messageStats.totalReceived === 0 ? (
+                {isLoading ? (
+                  <Card className="web3-card p-6">
+                    <div className="text-center text-muted-foreground py-8">
+                      <div className="animate-pulse">Loading messages...</div>
+                    </div>
+                  </Card>
+                ) : messageStats.totalReceived === 0 ? (
                   <Card className="web3-card p-6">
                     <div className="text-center text-muted-foreground py-8 bg-card/30 rounded-lg border border-white/5">
                       <MessageSquare className="h-10 w-10 mx-auto mb-2 opacity-20" />
@@ -144,12 +186,30 @@ const Dashboard = () => {
                   </Card>
                 ) : (
                   <div className="space-y-4">
-                    {/* Real messages would go here */}
+                    {receivedMessages.slice(0, 3).map((message) => (
+                      <MessageCard key={message.id} message={message} variant="compact" />
+                    ))}
+                    {receivedMessages.length > 3 && (
+                      <div className="text-center mt-4">
+                        <Button asChild variant="ghost" className="text-accent">
+                          <Link to="/inbox">
+                            View All Messages
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Link>
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </TabsContent>
               <TabsContent value="sent">
-                {messageStats.totalSent === 0 ? (
+                {isLoading ? (
+                  <Card className="web3-card p-6">
+                    <div className="text-center text-muted-foreground py-8">
+                      <div className="animate-pulse">Loading messages...</div>
+                    </div>
+                  </Card>
+                ) : messageStats.totalSent === 0 ? (
                   <Card className="web3-card p-6">
                     <div className="text-center text-muted-foreground py-8 bg-card/30 rounded-lg border border-white/5">
                       <MessageSquare className="h-10 w-10 mx-auto mb-2 opacity-20" />
@@ -163,7 +223,19 @@ const Dashboard = () => {
                   </Card>
                 ) : (
                   <div className="space-y-4">
-                    {/* Real messages would go here */}
+                    {sentMessages.slice(0, 3).map((message) => (
+                      <MessageCard key={message.id} message={message} variant="compact" />
+                    ))}
+                    {sentMessages.length > 3 && (
+                      <div className="text-center mt-4">
+                        <Button asChild variant="ghost" className="text-accent">
+                          <Link to="/inbox">
+                            View All Messages
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Link>
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </TabsContent>
@@ -183,7 +255,7 @@ const Dashboard = () => {
                 </CardHeader>
                 <CardContent className="pt-6">
                   <TabsContent value="all" className="m-0">
-                    <TransactionHistory userId={userId} limit={5} />
+                    <TransactionHistory userId={walletAddress || ''} limit={5} />
                   </TabsContent>
                   <TabsContent value="sent" className="m-0">
                     <div className="text-center text-muted-foreground py-8 bg-card/30 rounded-lg border border-white/5">

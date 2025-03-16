@@ -13,31 +13,25 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { Message, formatAmount, formatDate, getStatusColor } from '@/utils/mockData';
-import { toast } from '@/components/ui/use-toast';
+import { formatAmount, formatDate, getStatusColor } from '@/utils/mockData';
+import { useToast } from '@/hooks/use-toast';
 import { useWallet } from '@/contexts/WalletContext';
 import { approveMessagePayment, rejectMessagePayment } from '@/utils/anchorClient';
+import { updateMessageStatus, MessageData } from '@/utils/messageService';
 
 interface MessageCardProps {
-  message: Message;
+  message: MessageData;
   variant?: 'compact' | 'full';
+  onMessageUpdated?: () => void;
 }
 
-// Mock sender addresses (in a real app, these would be stored with the message)
-const SENDER_ADDRESSES: Record<string, string> = {
-  'willsmith': 'BN3gGhxPcn2YxFL1QZsmPqDf3WrDMEZtjzdFm4SJzgdT',
-  'jasmineflee': '8rRSCYJWGrgEnBXUHtgUMseNBfkrXLHVQvVmvn7Puqp4',
-  'mikezhang': 'DM5gyrYPj5jfRGKT6BbLJVrYxpJ9pZMWuP1gCvxBMrcg', 
-  'sarahkim': 'CxDc845MD8jxYbGjUCjQ5GHVH1Ex4UEwxK6JmGGZT7vF',
-  'taylorj': 'Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS'
-};
-
-const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
+const MessageCard = ({ message, variant = 'full', onMessageUpdated }: MessageCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { isConnected, getAnchorWallet } = useWallet();
+  const { toast } = useToast();
 
   const handleView = () => {
     setIsOpen(true);
@@ -86,36 +80,44 @@ const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
         throw new Error('Failed to get wallet');
       }
 
-      // Get sender address
-      const senderAddress = SENDER_ADDRESSES[message.senderUsername];
-      if (!senderAddress) {
-        throw new Error('Sender address not found');
-      }
-
-      // Use the message ID as the escrow identifier
-      // In a real app, this would be a unique ID stored with the message
-      const messageId = message.id;
-
+      // Use the message ID from the database
+      const messageId = message.message_id;
+      
+      let txSignature = '';
+      
       if (confirmAction === 'approve') {
         // Execute approve transaction
-        const tx = await approveMessagePayment(wallet, senderAddress, messageId);
+        const tx = await approveMessagePayment(wallet, message.sender_id, messageId);
+        txSignature = tx || '';
+        
+        // Update message status in database
+        await updateMessageStatus(messageId, 'approved', txSignature);
         
         toast({
           title: 'Message Approved',
-          description: `You've approved the message from @${message.senderUsername} and received ${formatAmount(message.paymentAmount)}.`,
+          description: `You've approved the message and received ${formatAmount(parseFloat(message.amount as any))}.`,
         });
         
         console.log('Approval transaction:', tx);
       } else if (confirmAction === 'reject') {
         // Execute reject transaction
-        const tx = await rejectMessagePayment(wallet, senderAddress, messageId);
+        const tx = await rejectMessagePayment(wallet, message.sender_id, messageId);
+        txSignature = tx || '';
+        
+        // Update message status in database
+        await updateMessageStatus(messageId, 'rejected', txSignature);
         
         toast({
           title: 'Message Rejected',
-          description: `You've rejected the message from @${message.senderUsername}. The payment has been returned.`,
+          description: `You've rejected the message. The payment has been returned.`,
         });
         
         console.log('Rejection transaction:', tx);
+      }
+      
+      // Notify parent component to refresh messages
+      if (onMessageUpdated) {
+        onMessageUpdated();
       }
     } catch (error) {
       console.error('Error processing message:', error);
@@ -137,26 +139,33 @@ const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
   const statusColors = getStatusColor(message.status);
   const isPending = message.status === 'pending';
   
+  // Get display information
+  const senderDisplayName = message.senderDisplayName || 'Unknown User';
+  const senderUsername = message.senderUsername || 'unknown';
+  const senderAvatarUrl = message.senderAvatarUrl || '';
+  const messageTimestamp = message.created_at || new Date().toISOString();
+  const messageAmount = parseFloat(message.amount as any) || 0;
+  
   if (variant === 'compact') {
     return (
       <Card className="glass-card hover:shadow-hover transition-all group">
         <CardContent className="p-4">
           <div className="flex items-center space-x-3">
             <Avatar className="h-10 w-10 border-2 border-white/50">
-              <AvatarImage src={message.senderAvatarUrl} alt={message.senderDisplayName} />
-              <AvatarFallback>{message.senderDisplayName.charAt(0)}</AvatarFallback>
+              <AvatarImage src={senderAvatarUrl} alt={senderDisplayName} />
+              <AvatarFallback>{senderDisplayName.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
-                <p className="font-medium truncate">@{message.senderUsername}</p>
+                <p className="font-medium truncate">@{senderUsername}</p>
                 <Badge variant="outline" className={`text-xs ${statusColors}`}>
                   {message.status}
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground truncate">{message.content}</p>
               <div className="flex items-center justify-between mt-1">
-                <p className="text-xs text-muted-foreground">{formatDate(message.timestamp)}</p>
-                <p className="text-xs font-medium">{formatAmount(message.paymentAmount)}</p>
+                <p className="text-xs text-muted-foreground">{formatDate(messageTimestamp)}</p>
+                <p className="text-xs font-medium">{formatAmount(messageAmount)}</p>
               </div>
             </div>
           </div>
@@ -171,12 +180,12 @@ const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div className="flex items-center space-x-2">
             <Avatar className="h-8 w-8 border-2 border-white/50">
-              <AvatarImage src={message.senderAvatarUrl} alt={message.senderDisplayName} />
-              <AvatarFallback>{message.senderDisplayName.charAt(0)}</AvatarFallback>
+              <AvatarImage src={senderAvatarUrl} alt={senderDisplayName} />
+              <AvatarFallback>{senderDisplayName.charAt(0)}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium leading-none">{message.senderDisplayName}</p>
-              <p className="text-sm text-muted-foreground">@{message.senderUsername}</p>
+              <p className="font-medium leading-none">{senderDisplayName}</p>
+              <p className="text-sm text-muted-foreground">@{senderUsername}</p>
             </div>
           </div>
           <Badge variant="outline" className={`text-xs ${statusColors}`}>
@@ -188,9 +197,9 @@ const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
           <div className="flex items-center justify-between mt-2">
             <p className="text-xs text-muted-foreground flex items-center">
               <Clock className="h-3 w-3 mr-1" />
-              {formatDate(message.timestamp)}
+              {formatDate(messageTimestamp)}
             </p>
-            <p className="text-sm font-medium">{formatAmount(message.paymentAmount)}</p>
+            <p className="text-sm font-medium">{formatAmount(messageAmount)}</p>
           </div>
         </CardContent>
         <CardFooter className="pt-0">
@@ -230,17 +239,17 @@ const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <MessageSquare className="h-5 w-5" />
-              <span>Message from {message.senderDisplayName}</span>
+              <span>Message from {senderDisplayName}</span>
             </DialogTitle>
             <DialogDescription>
               <div className="flex items-center space-x-2 mt-1">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={message.senderAvatarUrl} alt={message.senderDisplayName} />
-                  <AvatarFallback>{message.senderDisplayName.charAt(0)}</AvatarFallback>
+                  <AvatarImage src={senderAvatarUrl} alt={senderDisplayName} />
+                  <AvatarFallback>{senderDisplayName.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-medium text-sm">@{message.senderUsername}</p>
-                  <p className="text-xs text-muted-foreground">{formatDate(message.timestamp)}</p>
+                  <p className="font-medium text-sm">@{senderUsername}</p>
+                  <p className="text-xs text-muted-foreground">{formatDate(messageTimestamp)}</p>
                 </div>
               </div>
             </DialogDescription>
@@ -252,7 +261,7 @@ const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
             <Badge variant="outline" className={`${statusColors}`}>
               {message.status}
             </Badge>
-            <p className="font-medium">{formatAmount(message.paymentAmount)}</p>
+            <p className="font-medium">{formatAmount(messageAmount)}</p>
           </div>
           <DialogFooter className="flex sm:justify-between gap-2">
             <Button variant="ghost" onClick={handleClose}>
@@ -291,8 +300,8 @@ const MessageCard = ({ message, variant = 'full' }: MessageCardProps) => {
             </DialogTitle>
             <DialogDescription>
               {confirmAction === 'approve'
-                ? `Are you sure you want to approve this message? You will receive ${formatAmount(message.paymentAmount)}.`
-                : `Are you sure you want to reject this message? The payment of ${formatAmount(message.paymentAmount)} will be returned to the sender.`}
+                ? `Are you sure you want to approve this message? You will receive ${formatAmount(messageAmount)}.`
+                : `Are you sure you want to reject this message? The payment of ${formatAmount(messageAmount)} will be returned to the sender.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex sm:justify-end gap-2">

@@ -1,248 +1,241 @@
 import * as anchor from "@coral-xyz/anchor";
-import { BN, Program } from "@coral-xyz/anchor";
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import idlJSON from "../assets/pay_to_reply.json"; // We'll need to add this file later
+import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
+import { PublicKey, SystemProgram, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { IDL } from "@/assets/pay_to_reply";
+import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
+import { WalletContextState } from "@solana/wallet-adapter-react";
+import { AnchorWallet } from "@solana/wallet-adapter-react";
+import { BN } from "bn.js";
+import { saveMessage, updateMessageStatus } from './messageService';
 
-// Program ID from the deployed anchor program
-const PROGRAM_ID = "GPS2swU3p4XGWisAh3n4QWQuMvrQdfnz2eSwME2dp66A";
+// Constants
+const PROGRAM_ID = new PublicKey("GPS2swU3p4XGWisAh3n4QWQuMvrQdfnz2eSwME2dp66A");
 
-// Sonic DevNet connection
-const connection = new Connection("https://api.testnet.sonic.game", "confirmed");
+// Types
+export interface MessageEscrow {
+  sender: PublicKey;
+  recipient: PublicKey;
+  amount: anchor.BN;
+  messageId: string;
+  status: EscrowStatus;
+  createdAt: anchor.BN;
+  processedAt: anchor.BN;
+}
 
-// Create AnchorProvider from browser wallet
-export const createAnchorProvider = (wallet: any) => {
+export enum EscrowStatus {
+  Pending = "Pending",
+  Approved = "Approved",
+  Rejected = "Rejected",
+}
+
+// Helper function to get the provider
+const getProvider = (wallet: AnchorWallet): anchor.AnchorProvider => {
+  const connection = new anchor.web3.Connection(
+    anchor.web3.clusterApiUrl("devnet")
+  );
   const provider = new anchor.AnchorProvider(
     connection,
     wallet,
-    { preflightCommitment: "confirmed" }
+    anchor.AnchorProvider.defaultOptions()
   );
   return provider;
 };
 
-// Helper function to create a short, deterministic ID from the original message ID
-const shortenMessageId = (messageId: string): string => {
-  // Take only the first 4 characters to keep the seed extremely short
-  // This is necessary because Solana has a strict seed length limit
-  return messageId.slice(0, 4);
+// Helper function to get the program
+export const getProgram = async (wallet: AnchorWallet): Promise<anchor.Program<IDL>> => {
+  const provider = getProvider(wallet);
+  const program = new anchor.Program<IDL>(IDL, PROGRAM_ID, provider);
+  return program;
 };
 
-// Create a message payment via the anchor program (puts SOL in escrow)
-export const sendPayment = async (
-  wallet: any,
+// Derive PDA for message escrow
+export const deriveMessageEscrowPDA = async (
+    sender: PublicKey,
+    recipient: PublicKey,
+    messageId: string,
+    program: Program<IDL>
+): Promise<[PublicKey, number]> => {
+    return await PublicKey.findProgramAddress(
+        [
+            anchor.utils.bytes.utf8.encode("message-escrow"),
+            sender.toBuffer(),
+            recipient.toBuffer(),
+            anchor.utils.bytes.utf8.encode(messageId),
+        ],
+        program.programId
+    );
+};
+
+// Function to create a message payment
+export const createMessagePayment = async (
+  wallet: AnchorWallet,
   recipientAddress: string,
-  amountInSOL: number,
-  messageId: string = crypto.randomUUID()
-): Promise<string> => {
+  amount: number,
+  messageContent: string,
+): Promise<string | undefined> => {
   try {
-    // Create the anchor provider with the wallet
-    const provider = createAnchorProvider(wallet);
+    console.log(`Creating message payment of ${amount} SOL to ${recipientAddress} for message: ${messageContent.slice(0, 30)}...`);
+
+    // Generate a unique message ID (timestamp + random string)
+    const messageId = `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
+    console.log('Full message ID:', messageId);
     
-    // Cast the IDL to any type since we're loading it directly
-    const idl = idlJSON as any;
-    
-    // Create the program interface
-    const programId = new PublicKey(PROGRAM_ID);
-    const program = new Program(idl, programId, provider);
+    // Use only first 4 chars for the blockchain seed
+    const shortMessageId = messageId.slice(0, 4);
+    console.log('Using shortened message ID for seed:', shortMessageId);
+
+    // Connect to the program
+    const program = await getProgram(wallet);
     
     // Convert SOL amount to lamports
-    const amount = new BN(amountInSOL * LAMPORTS_PER_SOL);
+    const lamports = amount * LAMPORTS_PER_SOL;
     
-    // Create PublicKey from recipient address
-    const recipient = new PublicKey(recipientAddress);
+    // Convert recipient string to PublicKey
+    const recipientPublicKey = new PublicKey(recipientAddress);
     
-    // Shorten the message ID to keep seed length under the limit
-    const shortMessageId = shortenMessageId(messageId);
-    
-    console.log(`Creating message payment of ${amountInSOL} SOL to ${recipient.toString()} for message ${messageId} (shortened: ${shortMessageId})`);
-    
-    // Find the PDA for the message escrow account using the shortened message ID
-    // Use minimal seed data to prevent exceeding the seed length limit
-    const [messageEscrowPDA] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from("msg"), // Shortened from "message_escrow"
-        Buffer.from(shortMessageId)
-      ],
-      programId
+    // Derive the PDA for the escrow account
+    const [escrowPDA] = await deriveMessageEscrowPDA(
+      wallet.publicKey, 
+      recipientPublicKey,
+      shortMessageId,
+      program
     );
     
-    console.log(`Escrow PDA: ${messageEscrowPDA.toString()}`);
+    console.log('Escrow PDA:', escrowPDA.toBase58());
     
-    // Send the transaction
+    // Submit the transaction
     const tx = await program.methods
-      .createMessagePayment(amount, messageId) // Keep full messageId in the instruction for database reference
+      .createMessagePayment(
+        new BN(lamports),
+        shortMessageId
+      )
       .accounts({
-        sender: provider.wallet.publicKey,
-        recipient,
-        messageEscrow: messageEscrowPDA,
-        systemProgram: anchor.web3.SystemProgram.programId,
+        sender: wallet.publicKey,
+        recipient: recipientPublicKey,
+        messageEscrow: escrowPDA,
+        systemProgram: SystemProgram.programId,
       })
       .rpc();
     
-    console.log("Transaction successful:", tx);
+    console.log('Transaction successful:', tx);
+    
+    // Save message in Supabase
+    await saveMessage(
+      wallet.publicKey.toBase58(),
+      recipientAddress,
+      messageId,
+      messageContent,
+      amount,
+      tx
+    );
     
     return tx;
   } catch (error) {
-    console.error("Error creating message payment:", error);
+    console.error('Error in createMessagePayment:', error);
     throw error;
   }
 };
 
-// Approve a message payment (transfer SOL from escrow to recipient)
+// Function to approve a message payment
 export const approveMessagePayment = async (
-  wallet: any,
+  wallet: AnchorWallet,
   senderAddress: string,
-  messageId: string
-): Promise<string> => {
+  messageId: string,
+): Promise<string | undefined> => {
   try {
-    // Create the anchor provider with the wallet
-    const provider = createAnchorProvider(wallet);
+    console.log(`Approving message payment, message ID: ${messageId}`);
     
-    // Cast the IDL to any type since we're loading it directly
-    const idl = idlJSON as any;
+    // Use only first 4 chars for the blockchain seed (same as when creating)
+    const shortMessageId = messageId.slice(0, 4);
+    console.log('Using shortened message ID for seed:', shortMessageId);
+
+    // Connect to the program
+    const program = await getProgram(wallet);
     
-    // Create the program interface
-    const programId = new PublicKey(PROGRAM_ID);
-    const program = new Program(idl, programId, provider);
+    // Convert sender string to PublicKey
+    const senderPublicKey = new PublicKey(senderAddress);
     
-    // Create PublicKey from sender address
-    const sender = new PublicKey(senderAddress);
-    
-    // Shorten the message ID to match what was used in sendPayment
-    const shortMessageId = shortenMessageId(messageId);
-    
-    console.log(`Approving message payment from ${sender.toString()} for message ${messageId} (shortened: ${shortMessageId})`);
-    
-    // Find the PDA for the message escrow account
-    const [messageEscrowPDA] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from("msg"),
-        Buffer.from(shortMessageId)
-      ],
-      programId
+    // Derive the PDA for the escrow account
+    const [escrowPDA] = await deriveMessageEscrowPDA(
+      senderPublicKey,
+      wallet.publicKey,
+      shortMessageId,
+      program
     );
     
-    console.log(`Escrow PDA: ${messageEscrowPDA.toString()}`);
+    console.log('Escrow PDA:', escrowPDA.toBase58());
     
-    // Send the transaction
+    // Submit the transaction
     const tx = await program.methods
       .approveMessagePayment()
       .accounts({
-        sender,
-        recipient: provider.wallet.publicKey,
-        messageEscrow: messageEscrowPDA,
-        systemProgram: anchor.web3.SystemProgram.programId,
+        sender: senderPublicKey,
+        recipient: wallet.publicKey,
+        messageEscrow: escrowPDA,
+        systemProgram: SystemProgram.programId,
       })
       .rpc();
     
-    console.log("Approval transaction successful:", tx);
+    console.log('Approval transaction successful:', tx);
+    
+    // Update message status in Supabase
+    await updateMessageStatus(messageId, 'approved', tx);
     
     return tx;
   } catch (error) {
-    console.error("Error approving message payment:", error);
+    console.error('Error in approveMessagePayment:', error);
     throw error;
   }
 };
 
-// Reject a message payment (return SOL from escrow to sender)
+// Function to reject a message payment
 export const rejectMessagePayment = async (
-  wallet: any,
+  wallet: AnchorWallet,
   senderAddress: string,
-  messageId: string
-): Promise<string> => {
+  messageId: string,
+): Promise<string | undefined> => {
   try {
-    // Create the anchor provider with the wallet
-    const provider = createAnchorProvider(wallet);
+    console.log(`Rejecting message payment, message ID: ${messageId}`);
     
-    // Cast the IDL to any type since we're loading it directly
-    const idl = idlJSON as any;
+    // Use only first 4 chars for the blockchain seed (same as when creating)
+    const shortMessageId = messageId.slice(0, 4);
+    console.log('Using shortened message ID for seed:', shortMessageId);
+
+    // Connect to the program
+    const program = await getProgram(wallet);
     
-    // Create the program interface
-    const programId = new PublicKey(PROGRAM_ID);
-    const program = new Program(idl, programId, provider);
+    // Convert sender string to PublicKey
+    const senderPublicKey = new PublicKey(senderAddress);
     
-    // Create PublicKey from sender address
-    const sender = new PublicKey(senderAddress);
-    
-    // Shorten the message ID to match what was used in sendPayment
-    const shortMessageId = shortenMessageId(messageId);
-    
-    console.log(`Rejecting message payment from ${sender.toString()} for message ${messageId} (shortened: ${shortMessageId})`);
-    
-    // Find the PDA for the message escrow account
-    const [messageEscrowPDA] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from("msg"),
-        Buffer.from(shortMessageId)
-      ],
-      programId
+    // Derive the PDA for the escrow account
+    const [escrowPDA] = await deriveMessageEscrowPDA(
+      senderPublicKey,
+      wallet.publicKey,
+      shortMessageId,
+      program
     );
     
-    console.log(`Escrow PDA: ${messageEscrowPDA.toString()}`);
+    console.log('Escrow PDA:', escrowPDA.toBase58());
     
-    // Send the transaction
+    // Submit the transaction
     const tx = await program.methods
       .rejectMessagePayment()
       .accounts({
-        sender,
-        recipient: provider.wallet.publicKey,
-        messageEscrow: messageEscrowPDA,
-        systemProgram: anchor.web3.SystemProgram.programId,
+        sender: senderPublicKey,
+        recipient: wallet.publicKey,
+        messageEscrow: escrowPDA,
+        systemProgram: SystemProgram.programId,
       })
       .rpc();
     
-    console.log("Rejection transaction successful:", tx);
+    console.log('Rejection transaction successful:', tx);
+    
+    // Update message status in Supabase
+    await updateMessageStatus(messageId, 'rejected', tx);
     
     return tx;
   } catch (error) {
-    console.error("Error rejecting message payment:", error);
+    console.error('Error in rejectMessagePayment:', error);
     throw error;
-  }
-};
-
-// Find and fetch message escrow account data
-export const fetchMessageEscrow = async (
-  senderAddress: string,
-  recipientAddress: string,
-  messageId: string
-) => {
-  try {
-    // Create a read-only provider
-    const provider = new anchor.AnchorProvider(
-      connection,
-      { publicKey: new PublicKey(recipientAddress) } as any,
-      { preflightCommitment: "confirmed" }
-    );
-    
-    // Cast the IDL to any type since we're loading it directly
-    const idl = idlJSON as any;
-    
-    // Create the program interface
-    const programId = new PublicKey(PROGRAM_ID);
-    const program = new Program(idl, programId, provider);
-    
-    // Create PublicKeys
-    const sender = new PublicKey(senderAddress);
-    const recipient = new PublicKey(recipientAddress);
-    
-    // Shorten the message ID to match what was used in sendPayment
-    const shortMessageId = shortenMessageId(messageId);
-    
-    // Find the PDA for the message escrow account
-    const [messageEscrowPDA] = PublicKey.findProgramAddressSync(
-      [
-        Buffer.from("msg"),
-        Buffer.from(shortMessageId)
-      ],
-      programId
-    );
-    
-    console.log(`Fetching escrow PDA: ${messageEscrowPDA.toString()}`);
-    
-    // Fetch the account data
-    const escrowAccount = await program.account.messageEscrow.fetch(messageEscrowPDA);
-    return escrowAccount;
-  } catch (error) {
-    console.error("Error fetching message escrow:", error);
-    return null;
   }
 };
