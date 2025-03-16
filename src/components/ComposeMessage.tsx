@@ -11,7 +11,7 @@ import { toast } from '@/components/ui/use-toast';
 import { formatAmount } from '@/utils/mockData';
 import { users } from '@/utils/mockData';
 import { useWallet } from '@/contexts/WalletContext';
-import { createMessagePayment } from '@/utils/anchorClient';
+import { sendPayment } from '@/utils/anchorClient';
 import { v4 as uuidv4 } from 'uuid'; 
 
 interface ComposeMessageProps {
@@ -90,7 +90,7 @@ const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: Compos
       const messageId = uuidv4();
       
       // Create the message payment with escrow (instead of direct transfer)
-      const tx = await createMessagePayment(wallet, recipientAddress, amount, messageId);
+      const tx = await sendPayment(wallet, recipientAddress, amount, messageId);
       
       toast({
         title: 'Message Sent',

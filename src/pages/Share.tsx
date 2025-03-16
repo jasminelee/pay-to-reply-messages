@@ -1,3 +1,4 @@
+
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +17,6 @@ import { Slider } from '@/components/ui/slider';
 import { formatAmount } from '@/utils/mockData';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { sendPayment } from '@/utils/anchorClient';
-import { createClient } from '@supabase/supabase-js';
 
 const Share = () => {
   const { username } = useParams<{ username: string }>();
@@ -132,6 +132,7 @@ const Share = () => {
       
       const tx = await sendPayment(wallet, recipientAddress, amount, messageId);
       
+      // Save the message to Supabase after successful blockchain transaction
       const { data: messageData, error: messageError } = await supabase
         .from('messages')
         .insert({
