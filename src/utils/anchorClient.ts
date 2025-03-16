@@ -1,4 +1,3 @@
-
 import * as anchor from "@coral-xyz/anchor";
 import { BN, Program } from "@coral-xyz/anchor";
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -18,6 +17,13 @@ export const createAnchorProvider = (wallet: any) => {
     { preflightCommitment: "confirmed" }
   );
   return provider;
+};
+
+// Helper function to create a short, deterministic ID from the original message ID
+const shortenMessageId = (messageId: string): string => {
+  // Just take the first 8 characters to keep the seed length short
+  // This is simpler than using crypto hashing and should work for our purpose
+  return messageId.slice(0, 8);
 };
 
 // Create a message payment via the anchor program (puts SOL in escrow)
@@ -45,15 +51,18 @@ export const sendPayment = async (
     // Create PublicKey from recipient address
     const recipient = new PublicKey(recipientAddress);
     
-    console.log(`Creating message payment of ${amountInSOL} SOL to ${recipient.toString()} for message ${messageId}`);
+    // Shorten the message ID to keep seed length under the limit
+    const shortMessageId = shortenMessageId(messageId);
     
-    // Find the PDA for the message escrow account
+    console.log(`Creating message payment of ${amountInSOL} SOL to ${recipient.toString()} for message ${messageId} (shortened: ${shortMessageId})`);
+    
+    // Find the PDA for the message escrow account using the shortened message ID
     const [messageEscrowPDA] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("message_escrow"),
         provider.wallet.publicKey.toBuffer(),
         recipient.toBuffer(),
-        Buffer.from(messageId)
+        Buffer.from(shortMessageId)
       ],
       programId
     );
@@ -62,7 +71,7 @@ export const sendPayment = async (
     
     // Send the transaction
     const tx = await program.methods
-      .createMessagePayment(amount, messageId)
+      .createMessagePayment(amount, shortMessageId)
       .accounts({
         sender: provider.wallet.publicKey,
         recipient,
@@ -100,7 +109,10 @@ export const approveMessagePayment = async (
     // Create PublicKey from sender address
     const sender = new PublicKey(senderAddress);
     
-    console.log(`Approving message payment from ${sender.toString()} for message ${messageId}`);
+    // Shorten the message ID to match what was used in sendPayment
+    const shortMessageId = shortenMessageId(messageId);
+    
+    console.log(`Approving message payment from ${sender.toString()} for message ${messageId} (shortened: ${shortMessageId})`);
     
     // Find the PDA for the message escrow account
     const [messageEscrowPDA] = PublicKey.findProgramAddressSync(
@@ -108,7 +120,7 @@ export const approveMessagePayment = async (
         Buffer.from("message_escrow"),
         sender.toBuffer(),
         provider.wallet.publicKey.toBuffer(),
-        Buffer.from(messageId)
+        Buffer.from(shortMessageId)
       ],
       programId
     );
@@ -155,7 +167,10 @@ export const rejectMessagePayment = async (
     // Create PublicKey from sender address
     const sender = new PublicKey(senderAddress);
     
-    console.log(`Rejecting message payment from ${sender.toString()} for message ${messageId}`);
+    // Shorten the message ID to match what was used in sendPayment
+    const shortMessageId = shortenMessageId(messageId);
+    
+    console.log(`Rejecting message payment from ${sender.toString()} for message ${messageId} (shortened: ${shortMessageId})`);
     
     // Find the PDA for the message escrow account
     const [messageEscrowPDA] = PublicKey.findProgramAddressSync(
@@ -163,7 +178,7 @@ export const rejectMessagePayment = async (
         Buffer.from("message_escrow"),
         sender.toBuffer(),
         provider.wallet.publicKey.toBuffer(),
-        Buffer.from(messageId)
+        Buffer.from(shortMessageId)
       ],
       programId
     );
@@ -215,13 +230,16 @@ export const fetchMessageEscrow = async (
     const sender = new PublicKey(senderAddress);
     const recipient = new PublicKey(recipientAddress);
     
+    // Shorten the message ID to match what was used in sendPayment
+    const shortMessageId = shortenMessageId(messageId);
+    
     // Find the PDA for the message escrow account
     const [messageEscrowPDA] = PublicKey.findProgramAddressSync(
       [
         Buffer.from("message_escrow"),
         sender.toBuffer(),
         recipient.toBuffer(),
-        Buffer.from(messageId)
+        Buffer.from(shortMessageId)
       ],
       programId
     );
