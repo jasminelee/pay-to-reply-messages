@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export type MessageStatus = 'pending' | 'approved' | 'rejected';
@@ -89,8 +90,8 @@ export const fetchMessages = async (
         content, 
         status, 
         transaction_signature,
-        sender:profiles!sender_id(id, username, avatar_url),
-        recipient:profiles!recipient_id(id, username, avatar_url)
+        profiles!sender_id(id, username, avatar_url),
+        profiles!recipient_id(id, username, avatar_url)
       `);
     
     if (type === 'received') {
@@ -115,21 +116,27 @@ export const fetchMessages = async (
     console.log(`Found ${messages?.length || 0} messages:`, messages);
     
     // Format the messages
-    const formattedMessages: MessageData[] = messages?.map(msg => ({
-      id: msg.id,
-      sender_id: msg.sender_id,
-      recipient_id: msg.recipient_id,
-      amount: typeof msg.amount === 'string' ? parseFloat(msg.amount) : msg.amount,
-      created_at: msg.created_at,
-      message_id: msg.message_id,
-      content: msg.content,
-      status: msg.status as MessageStatus,
-      transaction_signature: msg.transaction_signature,
-      senderUsername: msg.sender?.username || 'Unknown User',
-      senderDisplayName: msg.sender?.username || 'Unknown User',
-      senderAvatarUrl: msg.sender?.avatar_url || '',
-      recipientUsername: msg.recipient?.username || 'Unknown User',
-    })) || [];
+    const formattedMessages: MessageData[] = messages?.map(msg => {
+      // Extract sender and recipient profile data
+      const senderProfile = msg.profiles?.sender_id;
+      const recipientProfile = msg.profiles?.recipient_id;
+      
+      return {
+        id: msg.id,
+        sender_id: msg.sender_id,
+        recipient_id: msg.recipient_id,
+        amount: typeof msg.amount === 'string' ? parseFloat(msg.amount) : msg.amount,
+        created_at: msg.created_at,
+        message_id: msg.message_id,
+        content: msg.content,
+        status: msg.status as MessageStatus,
+        transaction_signature: msg.transaction_signature,
+        senderUsername: senderProfile?.username || 'Unknown User',
+        senderDisplayName: senderProfile?.username || 'Unknown User',
+        senderAvatarUrl: senderProfile?.avatar_url || '',
+        recipientUsername: recipientProfile?.username || 'Unknown User',
+      };
+    }) || [];
     
     console.log('Formatted messages:', formattedMessages);
     return formattedMessages;
