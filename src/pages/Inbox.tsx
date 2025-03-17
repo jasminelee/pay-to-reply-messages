@@ -16,8 +16,14 @@ import MessageCard from '@/components/MessageCard';
 import { useWallet } from '@/contexts/WalletContext';
 import { useToast } from '@/components/ui/use-toast';
 import { fetchMessages, MessageData, fixDatabaseIssues, fixMessageIds, debugCheckMessages } from '@/utils/messageService';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Wallet } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const statusOptions = [
   { value: 'all', label: 'All' },
@@ -51,6 +57,7 @@ const Inbox = () => {
   const [isFixingMessageIds, setIsFixingMessageIds] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [isDebugChecking, setIsDebugChecking] = useState(false);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   
   // Load messages from Supabase
   const loadMessages = useCallback(async () => {
@@ -58,19 +65,65 @@ const Inbox = () => {
     
     setIsLoading(true);
     setHasError(false);
+    setErrorDetails(null);
+    
     try {
       console.log('Loading messages for wallet:', walletAddress);
-      const [received, sent] = await Promise.all([
-        fetchMessages(walletAddress, 'received'),
-        fetchMessages(walletAddress, 'sent')
-      ]);
       
-      setReceivedMessages(received);
-      setSentMessages(sent);
-      console.log(`Loaded ${received.length} received and ${sent.length} sent messages`);
+      // Try to load messages with additional error handling
+      let receivedResult: MessageData[] = [];
+      let sentResult: MessageData[] = [];
+      
+      try {
+        receivedResult = await fetchMessages(walletAddress, 'received');
+        console.log('Received messages loaded:', receivedResult.length);
+      } catch (receivedError) {
+        console.error('Error loading received messages:', receivedError);
+        toast({
+          title: "Error loading received messages",
+          description: "There was a problem loading your received messages. Check console for details.",
+          variant: "destructive"
+        });
+      }
+      
+      try {
+        sentResult = await fetchMessages(walletAddress, 'sent');
+        console.log('Sent messages loaded:', sentResult.length);
+      } catch (sentError) {
+        console.error('Error loading sent messages:', sentError);
+        toast({
+          title: "Error loading sent messages",
+          description: "There was a problem loading your sent messages. Check console for details.",
+          variant: "destructive"
+        });
+      }
+      
+      setReceivedMessages(receivedResult);
+      setSentMessages(sentResult);
+      
+      if (receivedResult.length === 0 && sentResult.length === 0) {
+        // If no messages were found, automatically run a debug check
+        try {
+          console.log('No messages found, running debug check...');
+          const debugResult = await debugCheckMessages(walletAddress);
+          console.log('Debug check result:', debugResult);
+          
+          if (debugResult.error) {
+            setErrorDetails(`Debug check error: ${debugResult.error}`);
+          } else if (debugResult.messages && debugResult.messages.length > 0) {
+            setErrorDetails(`Found ${debugResult.messages.length} messages in database that weren't loaded correctly. Check console for details.`);
+          }
+        } catch (debugError) {
+          console.error('Error running debug check:', debugError);
+        }
+      }
+      
+      console.log(`Loaded ${receivedResult.length} received and ${sentResult.length} sent messages`);
     } catch (error) {
       console.error('Error loading messages:', error);
       setHasError(true);
+      setErrorDetails(error instanceof Error ? error.message : 'Unknown error');
+      
       toast({
         title: "Error loading messages",
         description: "There was a problem loading your messages. Please try again.",
@@ -215,6 +268,7 @@ const Inbox = () => {
           description: result.error,
           variant: "destructive"
         });
+        setErrorDetails(result.error);
       } else if (result.messages && result.messages.length === 0) {
         toast({
           title: "No Messages Found",
@@ -226,6 +280,12 @@ const Inbox = () => {
           title: "Debug Check Complete",
           description: `Found ${result.stats?.totalMessages || 0} total messages (${result.stats?.receivedMessages || 0} received, ${result.stats?.sentMessages || 0} sent)`,
         });
+        
+        // If messages were found in debug but not loaded properly, show this info
+        if ((result.stats?.totalMessages || 0) > 0 && 
+            (receivedMessages.length + sentMessages.length === 0)) {
+          setErrorDetails(`Debug found ${result.stats?.totalMessages} messages in the database, but they couldn't be loaded. Check console for details.`);
+        }
       }
     } catch (error) {
       console.error('Error during debug check:', error);
@@ -234,6 +294,7 @@ const Inbox = () => {
         description: "There was an error during the debug check. See console for details.",
         variant: "destructive"
       });
+      setErrorDetails(error instanceof Error ? error.message : 'Unknown error during debug check');
     } finally {
       setIsDebugChecking(false);
     }
@@ -260,6 +321,25 @@ const Inbox = () => {
             <AlertTitle>Error loading messages</AlertTitle>
             <AlertDescription>
               There was a problem loading your messages. Please try refreshing or check the console for details.
+              {errorDetails && <div className="mt-2 text-sm font-mono bg-background/20 p-2 rounded">{errorDetails}</div>}
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {errorDetails && !hasError && (
+          <Alert variant="warning" className="animate-fade-in border-yellow-500 bg-yellow-500/10">
+            <AlertCircle className="h-4 w-4 text-yellow-500" />
+            <AlertTitle>Potential Issues Detected</AlertTitle>
+            <AlertDescription>
+              {errorDetails}
+              <div className="mt-2">
+                <Button variant="outline" size="sm" onClick={handleDebugCheck} className="mr-2">
+                  Run Detailed Check
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleRefresh}>
+                  Refresh Messages
+                </Button>
+              </div>
             </AlertDescription>
           </Alert>
         )}
@@ -272,49 +352,97 @@ const Inbox = () => {
                 <TabsTrigger value="sent" className="px-4">Sent</TabsTrigger>
               </TabsList>
               
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={handleRefresh} 
-                disabled={isRefreshing || isLoading}
-                className="h-10 w-10"
-                title="Refresh Messages"
-              >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={handleRefresh} 
+                      disabled={isRefreshing || isLoading}
+                      className="h-10 w-10"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Refresh Messages</p>
+                  </TooltipContent>
+                </Tooltip>
               
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={handleFixDatabase} 
-                disabled={isFixing}
-                className="h-10 w-10"
-                title="Fix Database Issues"
-              >
-                <Database className={`h-4 w-4 ${isFixing ? 'animate-pulse' : ''}`} />
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={handleFixMessageIds} 
-                disabled={isFixingMessageIds}
-                className="h-10 w-10"
-                title="Fix Message IDs"
-              >
-                <Key className={`h-4 w-4 ${isFixingMessageIds ? 'animate-pulse' : ''}`} />
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={handleDebugCheck} 
-                disabled={isDebugChecking || !walletAddress}
-                className="h-10 w-10"
-                title="Debug Check Messages"
-              >
-                <AlertCircle className={`h-4 w-4 ${isDebugChecking ? 'animate-pulse' : ''}`} />
-              </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={handleFixDatabase} 
+                      disabled={isFixing}
+                      className="h-10 w-10"
+                    >
+                      <Database className={`h-4 w-4 ${isFixing ? 'animate-pulse' : ''}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Fix Database Issues</p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={handleFixMessageIds} 
+                      disabled={isFixingMessageIds}
+                      className="h-10 w-10"
+                    >
+                      <Key className={`h-4 w-4 ${isFixingMessageIds ? 'animate-pulse' : ''}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Fix Message IDs</p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={handleDebugCheck} 
+                      disabled={isDebugChecking || !walletAddress}
+                      className="h-10 w-10"
+                    >
+                      <AlertCircle className={`h-4 w-4 ${isDebugChecking ? 'animate-pulse' : ''}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Debug Check Messages</p>
+                  </TooltipContent>
+                </Tooltip>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={() => {
+                        toast({
+                          title: "Wallet Info",
+                          description: walletAddress ? `Current wallet: ${walletAddress}` : "No wallet connected",
+                        });
+                        console.log("Current wallet address:", walletAddress);
+                      }} 
+                      className="h-10 w-10"
+                    >
+                      <Wallet className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Check Wallet Info</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             
             <div className="flex flex-col sm:flex-row gap-2">

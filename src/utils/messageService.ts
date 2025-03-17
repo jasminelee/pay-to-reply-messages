@@ -37,56 +37,58 @@ export const fetchMessages = async (
     console.log(`Fetching ${type} messages for wallet: ${walletAddress}`);
     
     // Get the profile associated with this wallet address
-    const { data: profile, error: profileError } = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('id, username, avatar_url')
-      .eq('wallet_address', walletAddress)
-      .single();
+      .eq('wallet_address', walletAddress);
     
     if (profileError) {
       console.error('Error fetching profile:', profileError);
+      return [];
+    }
+    
+    if (!profileData || profileData.length === 0) {
+      console.log('No profile found for wallet address:', walletAddress);
+      console.log('Creating a new profile...');
       
-      // If the profile doesn't exist, create one
-      if (profileError.code === 'PGRST116') {
-        console.log('Profile not found, creating a new one');
-        
-        // Generate a UUID for the new profile
-        const newProfileId = crypto.randomUUID();
-        
-        const { data: newProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert({
-            id: newProfileId,
-            wallet_address: walletAddress,
-            username: `user_${walletAddress.substring(0, 8)}`
-          })
-          .select('id, username')
-          .single();
-        
-        if (createError) {
-          console.error('Error creating profile:', createError);
-          return [];
-        }
-        
-        console.log('Created new profile:', newProfile);
-        return []; // Return empty array as there are no messages yet for a new profile
+      // Generate a UUID for the new profile
+      const newProfileId = crypto.randomUUID();
+      
+      const { data: newProfile, error: createError } = await supabase
+        .from('profiles')
+        .insert({
+          id: newProfileId,
+          wallet_address: walletAddress,
+          username: `user_${walletAddress.substring(0, 8)}`
+        })
+        .select();
+      
+      if (createError) {
+        console.error('Error creating profile:', createError);
+        return [];
       }
       
-      return [];
+      console.log('Created new profile:', newProfile);
+      return []; // Return empty array as there are no messages yet for a new profile
     }
     
-    if (!profile) {
-      console.error('No profile found for wallet address:', walletAddress);
-      return [];
-    }
-    
+    // Use the first profile found (should normally be only one)
+    const profile = profileData[0];
     console.log('Found profile:', profile);
     
     // Build the query based on the type
     let query = supabase
       .from('messages')
       .select(`
-        *,
+        id, 
+        sender_id, 
+        recipient_id, 
+        amount, 
+        created_at, 
+        message_id, 
+        content, 
+        status, 
+        transaction_signature,
         sender:profiles!sender_id(id, username, avatar_url),
         recipient:profiles!recipient_id(id, username, avatar_url)
       `);
@@ -110,11 +112,10 @@ export const fetchMessages = async (
       return [];
     }
     
-    console.log(`Found ${messages?.length || 0} messages`);
-    console.log('Raw messages data:', messages);
+    console.log(`Found ${messages?.length || 0} messages:`, messages);
     
     // Format the messages
-    const formattedMessages: MessageData[] = messages.map(msg => ({
+    const formattedMessages: MessageData[] = messages?.map(msg => ({
       id: msg.id,
       sender_id: msg.sender_id,
       recipient_id: msg.recipient_id,
@@ -128,7 +129,7 @@ export const fetchMessages = async (
       senderDisplayName: msg.sender?.username || 'Unknown User',
       senderAvatarUrl: msg.sender?.avatar_url || '',
       recipientUsername: msg.recipient?.username || 'Unknown User',
-    }));
+    })) || [];
     
     console.log('Formatted messages:', formattedMessages);
     return formattedMessages;
@@ -311,17 +312,16 @@ export const saveMessage = async (
       }
     }
 
-    // Find or create sender profile
+    // Find sender profile
     const { data: senderProfile, error: senderProfileError } = await supabase
       .from('profiles')
-      .select('id')
-      .eq('wallet_address', senderWalletAddress)
-      .single();
+      .select('id, username')
+      .eq('wallet_address', senderWalletAddress);
     
     let senderId: string;
     
-    if (senderProfileError || !senderProfile) {
-      console.log('Sender profile not found, creating a new one');
+    if (!senderProfile || senderProfile.length === 0) {
+      console.log('Sender profile not found, creating a new one for', senderWalletAddress);
       // Generate a UUID for the new profile
       const newSenderId = crypto.randomUUID();
       
@@ -332,30 +332,30 @@ export const saveMessage = async (
           wallet_address: senderWalletAddress,
           username: `user_${senderWalletAddress.substring(0, 8)}`
         })
-        .select('id')
-        .single();
+        .select();
       
-      if (newSenderError || !newSenderProfile) {
+      if (newSenderError || !newSenderProfile || newSenderProfile.length === 0) {
         console.error('Failed to create sender profile:', newSenderError);
         return false;
       }
       
-      senderId = newSenderProfile.id;
+      senderId = newSenderProfile[0].id;
+      console.log('Created new sender profile with ID:', senderId);
     } else {
-      senderId = senderProfile.id;
+      senderId = senderProfile[0].id;
+      console.log('Found existing sender profile:', senderProfile[0]);
     }
 
-    // Find or create recipient profile
+    // Find recipient profile
     const { data: recipientProfile, error: recipientProfileError } = await supabase
       .from('profiles')
-      .select('id')
-      .eq('wallet_address', recipientWalletAddress)
-      .single();
+      .select('id, username')
+      .eq('wallet_address', recipientWalletAddress);
     
     let recipientId: string;
     
-    if (recipientProfileError || !recipientProfile) {
-      console.log('Recipient profile not found, creating a new one');
+    if (!recipientProfile || recipientProfile.length === 0) {
+      console.log('Recipient profile not found, creating a new one for', recipientWalletAddress);
       
       // Generate a UUID for the new profile
       const newRecipientId = crypto.randomUUID();
@@ -367,23 +367,21 @@ export const saveMessage = async (
           wallet_address: recipientWalletAddress,
           username: `user_${recipientWalletAddress.substring(0, 8)}`
         })
-        .select('id')
-        .single();
+        .select();
       
-      if (newRecipientError || !newRecipientProfile) {
+      if (newRecipientError || !newRecipientProfile || newRecipientProfile.length === 0) {
         console.error('Failed to create recipient profile:', newRecipientError);
         return false;
       }
       
-      recipientId = newRecipientProfile.id;
+      recipientId = newRecipientProfile[0].id;
+      console.log('Created new recipient profile with ID:', recipientId);
     } else {
-      recipientId = recipientProfile.id;
+      recipientId = recipientProfile[0].id;
+      console.log('Found existing recipient profile:', recipientProfile[0]);
     }
 
-    console.log('Profiles found/created:', {
-      senderId,
-      recipientId
-    });
+    console.log('Saving message with sender_id:', senderId, 'recipient_id:', recipientId);
 
     // Save the message
     const { data, error } = await supabase
@@ -406,6 +404,19 @@ export const saveMessage = async (
     }
 
     console.log('Message saved successfully with ID:', messageId);
+    
+    // Verify the message was saved by fetching it back
+    const { data: verifyMessage, error: verifyError } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('message_id', messageId);
+      
+    if (verifyError) {
+      console.error('Error verifying message was saved:', verifyError);
+    } else {
+      console.log('Verified message was saved:', verifyMessage);
+    }
+    
     return true;
   } catch (error) {
     console.error('Error in saveMessage:', error);
@@ -713,8 +724,8 @@ if (typeof window !== 'undefined') {
         .from('messages')
         .select(`
           *,
-          sender:profiles!sender_id(id, username, avatar_url),
-          recipient:profiles!recipient_id(id, username, avatar_url)
+          sender:profiles(id, username, avatar_url),
+          recipient:profiles(id, username, avatar_url)
         `)
         .or(`sender_id.eq.${profile.id},recipient_id.eq.${profile.id}`);
       
@@ -809,6 +820,23 @@ export const debugCheckMessages = async (walletAddress: string) => {
     console.log('Direct check - Is sender in any message:', isSender);
     console.log('Direct check - Is recipient in any message:', isRecipient);
     
+    // Try querying directly without .single()
+    console.log('Attempting direct query...');
+    const { data: directData, error: directError } = await supabase
+      .from('messages')
+      .select(`
+        *,
+        sender:profiles(id, username, avatar_url),
+        recipient:profiles(id, username, avatar_url)
+      `)
+      .or(`sender_id.eq.${profile.id},recipient_id.eq.${profile.id}`);
+    
+    if (directError) {
+      console.error('Error with direct query:', directError);
+    } else {
+      console.log('Direct query results:', directData);
+    }
+    
     // Count received and sent messages
     const receivedMessages = messages.filter(msg => msg.recipient_id === profile.id);
     const sentMessages = messages.filter(msg => msg.sender_id === profile.id);
@@ -830,9 +858,103 @@ export const debugCheckMessages = async (walletAddress: string) => {
   }
 };
 
-// Make the debug function available globally for console access
+// Make all debug functions available in window for console access
 if (typeof window !== 'undefined') {
-  (window as any).debugCheckMessages = debugCheckMessages;
+  (window as any).debugDatabase = async () => {
+    try {
+      console.log('Starting database debug...');
+      
+      // Get all profiles
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*');
+      
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        return { error: 'Failed to fetch profiles' };
+      }
+      
+      console.log(`Found ${profiles?.length || 0} profiles:`);
+      console.table(profiles);
+      
+      // Get all messages
+      const { data: messages, error: messagesError } = await supabase
+        .from('messages')
+        .select('*');
+      
+      if (messagesError) {
+        console.error('Error fetching messages:', messagesError);
+        return { error: 'Failed to fetch messages' };
+      }
+      
+      console.log(`Found ${messages?.length || 0} messages:`);
+      console.table(messages);
+      
+      return {
+        profiles,
+        messages
+      };
+    } catch (error) {
+      console.error('Error debugging database:', error);
+      return { error: 'Failed to debug database' };
+    }
+  };
   
-  console.log('Added debugCheckMessages to window object. Use window.debugCheckMessages(walletAddress) to debug.');
+  (window as any).checkMessagesDirectly = async (walletAddress: string) => {
+    try {
+      console.log(`Directly checking messages for wallet: ${walletAddress}`);
+      
+      // First get all profiles to find the one with this wallet address
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*');
+      
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        return { error: 'Failed to fetch profiles' };
+      }
+      
+      // Find the profile with this wallet address
+      const profile = profiles.find(p => p.wallet_address === walletAddress);
+      
+      if (!profile) {
+        console.log(`No profile found for wallet address: ${walletAddress}`);
+        return { error: 'No profile found for this wallet address' };
+      }
+      
+      console.log(`Found profile:`, profile);
+      
+      // Get all messages for this profile
+      const { data: messages, error: messagesError } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          sender:profiles(id, username, avatar_url),
+          recipient:profiles(id, username, avatar_url)
+        `)
+        .or(`sender_id.eq.${profile.id},recipient_id.eq.${profile.id}`);
+      
+      if (messagesError) {
+        console.error('Error fetching messages:', messagesError);
+        return { error: 'Failed to fetch messages' };
+      }
+      
+      console.log(`Found ${messages.length} messages for wallet: ${walletAddress}`);
+      console.table(messages);
+      
+      return {
+        profile,
+        messages
+      };
+    } catch (error) {
+      console.error('Error checking messages directly:', error);
+      return { error: 'Failed to check messages' };
+    }
+  };
+  
+  (window as any).debugCheckMessages = debugCheckMessages;
+  (window as any).fixDatabaseIssues = fixDatabaseIssues;
+  (window as any).fixMessageIds = fixMessageIds;
+  
+  console.log('Database debug utilities added to window object. Use window.debugDatabase(), window.checkMessagesDirectly(walletAddress), window.debugCheckMessages(walletAddress), window.fixDatabaseIssues(), or window.fixMessageIds() to debug.');
 }
