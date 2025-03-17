@@ -25,11 +25,18 @@ const MessageActionButtons: React.FC<MessageActionButtonsProps> = ({
   const { isConnected } = useWallet();
   const [isDonationDialogOpen, setIsDonationDialogOpen] = useState(false);
   
+  // Add debug logs to check values
+  console.log('MessageActionButtons - message status:', message.status);
+  console.log('MessageActionButtons - isRecipient:', isRecipient);
+  
   // Only show the donate option for approved messages where the user is the recipient
   const showDonateOption = isRecipient && message.status === 'approved';
   
   // Show the approve/reject buttons only for pending messages where the user is the recipient
   const showApproveReject = isRecipient && message.status === 'pending';
+  
+  // Debug log for showDonateOption
+  console.log('MessageActionButtons - showDonateOption:', showDonateOption);
   
   const handleDonateClick = () => {
     if (!isConnected) {
@@ -46,7 +53,7 @@ const MessageActionButtons: React.FC<MessageActionButtonsProps> = ({
   
   return (
     <>
-      <div className="flex flex-wrap gap-2 mt-2">
+      <div className="flex flex-wrap gap-2 w-full">
         {showApproveReject && (
           <>
             <Button 
@@ -94,12 +101,14 @@ const MessageActionButtons: React.FC<MessageActionButtonsProps> = ({
         )}
       </div>
       
-      <DonationDialog
-        open={isDonationDialogOpen}
-        onOpenChange={setIsDonationDialogOpen}
-        messageId={message.message_id}
-        amount={parseFloat(message.amount as unknown as string) || 0}
-      />
+      {isDonationDialogOpen && (
+        <DonationDialog
+          open={isDonationDialogOpen}
+          onOpenChange={setIsDonationDialogOpen}
+          messageId={message.message_id}
+          amount={parseFloat(message.amount as unknown as string) || 0}
+        />
+      )}
     </>
   );
 };

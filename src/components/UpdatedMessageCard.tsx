@@ -40,21 +40,24 @@ const MessageCard: React.FC<MessageCardProps> = ({
   const { walletAddress, isConnected, getAnchorWallet, refreshBalance } = useWallet();
   const [isLoading, setIsLoading] = useState(false);
   
+  // Ensure we have the correct values for comparison
+  const userWallet = walletAddress?.toLowerCase() || '';
+  const recipientId = message.recipient_id?.toLowerCase() || '';
+  const senderId = message.sender_id?.toLowerCase() || '';
+  
   // Determine if current user is recipient
-  const isRecipient = isConnected && walletAddress && message.recipient_id 
-    ? message.recipient_id.toLowerCase() === walletAddress.toLowerCase() 
-    : false;
+  const isRecipient = isConnected && userWallet === recipientId;
   
   // Determine if current user is sender
-  const isSender = isConnected && walletAddress && message.sender_id 
-    ? message.sender_id.toLowerCase() === walletAddress.toLowerCase() 
-    : false;
+  const isSender = isConnected && userWallet === senderId;
 
   // For debugging
+  console.log('Message:', message);
   console.log('Message status:', message.status);
   console.log('Is recipient:', isRecipient);
-  console.log('Recipient ID:', message.recipient_id);
-  console.log('Wallet address:', walletAddress);
+  console.log('Recipient ID:', recipientId);
+  console.log('Wallet address:', userWallet);
+  console.log('Is connected:', isConnected);
   
   const handleApprove = async () => {
     try {
