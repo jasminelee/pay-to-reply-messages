@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export type MessageStatus = 'pending' | 'approved' | 'rejected';
@@ -81,17 +80,9 @@ export const fetchMessages = async (
     let query = supabase
       .from('messages')
       .select(`
-        id, 
-        sender_id, 
-        recipient_id, 
-        amount, 
-        created_at, 
-        message_id, 
-        content, 
-        status, 
-        transaction_signature,
-        profiles!sender_id(id, username, avatar_url),
-        profiles!recipient_id(id, username, avatar_url)
+        *,
+        sender:profiles(id, username, avatar_url),
+        recipient:profiles(id, username, avatar_url)
       `);
     
     if (type === 'received') {
@@ -117,10 +108,6 @@ export const fetchMessages = async (
     
     // Format the messages
     const formattedMessages: MessageData[] = messages?.map(msg => {
-      // Extract sender and recipient profile data
-      const senderProfile = msg.profiles?.sender_id;
-      const recipientProfile = msg.profiles?.recipient_id;
-      
       return {
         id: msg.id,
         sender_id: msg.sender_id,
@@ -131,10 +118,10 @@ export const fetchMessages = async (
         content: msg.content,
         status: msg.status as MessageStatus,
         transaction_signature: msg.transaction_signature,
-        senderUsername: senderProfile?.username || 'Unknown User',
-        senderDisplayName: senderProfile?.username || 'Unknown User',
-        senderAvatarUrl: senderProfile?.avatar_url || '',
-        recipientUsername: recipientProfile?.username || 'Unknown User',
+        senderUsername: msg.sender?.username || 'Unknown User',
+        senderDisplayName: msg.sender?.username || 'Unknown User',
+        senderAvatarUrl: msg.sender?.avatar_url || '',
+        recipientUsername: msg.recipient?.username || 'Unknown User',
       };
     }) || [];
     
