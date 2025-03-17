@@ -117,8 +117,6 @@ const Share = () => {
     setIsSending(true);
     
     try {
-      const messageId = crypto.randomUUID();
-      
       const wallet = getAnchorWallet();
       if (!wallet) {
         throw new Error('Failed to get wallet');
@@ -129,27 +127,11 @@ const Share = () => {
         throw new Error('Recipient wallet address not found');
       }
       
+      // Create message payment - this function already saves the message to Supabase
       const tx = await createMessagePayment(wallet, recipientAddress, amount, message);
       
-      // Save the message to Supabase after successful blockchain transaction
-      const { data: messageData, error: messageError } = await supabase
-        .from('messages')
-        .insert({
-          sender_id: user?.id,
-          recipient_id: recipient.id,
-          content: message,
-          amount: amount,
-          status: 'pending',
-          transaction_signature: tx,
-          message_id: messageId
-        })
-        .select()
-        .single();
-      
-      if (messageError) {
-        console.error('Error saving message:', messageError);
-        throw new Error('Failed to save message');
-      }
+      // No need to save the message again - it's already saved by createMessagePayment
+      // The message_id is generated inside createMessagePayment to ensure consistency
       
       toast({
         title: 'Message Sent',
@@ -157,7 +139,6 @@ const Share = () => {
       });
       
       console.log('Transaction signature:', tx);
-      console.log('Message saved:', messageData);
       
       setIsSending(false);
       setMessage('');

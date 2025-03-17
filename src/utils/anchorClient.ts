@@ -214,16 +214,50 @@ export const deriveMessageEscrowPDA = async (
     messageId: string,
     program: Program<typeof IDL>
 ): Promise<[PublicKey, number]> => {
-    // The Anchor program uses only two seeds:
-    // 1. The string "msg" as a prefix
-    // 2. The first 4 bytes of the message ID
-    return await PublicKey.findProgramAddress(
-        [
+    if (!messageId) {
+        console.error('Message ID is undefined or empty');
+        throw new Error('Invalid message ID: Cannot derive PDA without a message ID');
+    }
+    
+    if (messageId.length < 4) {
+        console.error('Message ID is too short:', messageId);
+        throw new Error('Invalid message ID: Message ID must be at least 4 characters long');
+    }
+    
+    console.log('Deriving PDA with:');
+    console.log('- Sender:', sender.toBase58());
+    console.log('- Recipient:', recipient.toBase58());
+    console.log('- Message ID:', messageId);
+    console.log('- Using first 4 characters for seed:', messageId.slice(0, 4));
+    console.log('- Program ID:', program.programId.toBase58());
+    
+    try {
+        // The Anchor program uses only two seeds:
+        // 1. The string "msg" as a prefix
+        // 2. The first 4 bytes of the message ID
+        const seeds = [
             Buffer.from("msg"),
             Buffer.from(messageId.slice(0, 4))
-        ],
-        program.programId
-    );
+        ];
+        
+        console.log('PDA seeds:', {
+            seed1: "msg",
+            seed2: messageId.slice(0, 4)
+        });
+        
+        const [pda, bump] = await PublicKey.findProgramAddress(
+            seeds,
+            program.programId
+        );
+        
+        console.log('Derived PDA:', pda.toBase58());
+        console.log('PDA bump:', bump);
+        
+        return [pda, bump];
+    } catch (error) {
+        console.error('Error deriving PDA:', error);
+        throw new Error(`Failed to derive PDA: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 };
 
 // Helper function to check if wallet has sufficient balance
@@ -280,8 +314,9 @@ export const createMessagePayment = async (
     
     // Generate a simple message ID that will be used for the PDA seed
     // Using a simple 4-character ID for consistency with the program's expectations
+    // Format: 'm' + 3 characters from timestamp in base36
     const messageId = `m${Date.now().toString(36).slice(-3)}`;
-    console.log('Message ID:', messageId);
+    console.log('Generated Message ID:', messageId);
     
     // Connect to the program
     const program = await getProgram(wallet);
@@ -319,15 +354,22 @@ export const createMessagePayment = async (
     
     console.log('Transaction successful:', tx);
     
-    // Save message in Supabase
-    await saveMessage(
+    // Save message in Supabase - IMPORTANT: Use the same messageId that was used in the blockchain transaction
+    const saveResult = await saveMessage(
       wallet.publicKey.toBase58(),
       recipientAddress,
-      messageId,
+      messageId, // Use the exact same messageId that was used in the blockchain
       messageContent,
       amount,
       tx
     );
+    
+    if (!saveResult) {
+      console.error('Failed to save message to database');
+      throw new Error('Transaction was successful, but failed to save message details. Please check your messages later.');
+    }
+    
+    console.log('Message saved to database with ID:', messageId);
     
     return tx;
   } catch (error) {
@@ -370,14 +412,80 @@ export const approveMessagePayment = async (
 ): Promise<string | undefined> => {
   try {
     console.log(`Approving message payment, message ID: ${messageId}`);
+    console.log(`Sender address provided: ${senderAddress}`);
+    console.log(`Recipient wallet address: ${wallet.publicKey.toBase58()}`);
+    
+    if (!senderAddress) {
+      console.error('Sender address is undefined or null');
+      throw new Error('Invalid sender address: The sender address is missing');
+    }
+    
+    if (!messageId) {
+      console.error('Message ID is undefined or null');
+      throw new Error('Invalid message ID: The message ID is missing');
+    }
+    
+    // Validate message ID format
+    if (!messageId.startsWith('m') || messageId.length < 4) {
+      console.error('Invalid message ID format:', messageId);
+      throw new Error('Invalid message ID format. The message ID should start with "m" followed by at least 3 characters.');
+    }
     
     // Connect to the program
     const program = await getProgram(wallet);
     
-    // Convert sender string to PublicKey
-    const senderPublicKey = new PublicKey(senderAddress);
+    // Check if senderAddress is a UUID (database ID) or a wallet address
+    let senderPublicKey;
+    
+    // If it's a UUID (not a valid base58 string), we need to fetch the wallet address
+    try {
+      senderPublicKey = new PublicKey(senderAddress);
+      console.log('Sender address is a valid public key:', senderPublicKey.toBase58());
+    } catch (error) {
+      console.log('Sender address is not a valid public key, assuming it\'s a database ID:', senderAddress);
+      
+      // Import supabase client if not already imported
+      const { supabase } = await import('./messageService');
+      
+      // Fetch the sender's wallet address from the database
+      const { data: senderProfile, error: senderError } = await supabase
+        .from('profiles')
+        .select('wallet_address')
+        .eq('id', senderAddress)
+        .single();
+      
+      if (senderError) {
+        console.error('Error fetching sender profile:', senderError);
+        throw new Error(`Failed to find sender wallet address: ${senderError.message}`);
+      }
+      
+      if (!senderProfile) {
+        console.error('Sender profile not found for ID:', senderAddress);
+        throw new Error('Sender profile not found in database');
+      }
+      
+      if (!senderProfile.wallet_address) {
+        console.error('Wallet address is missing in sender profile:', senderProfile);
+        throw new Error('Sender wallet address not found in database');
+      }
+      
+      console.log('Found sender wallet address:', senderProfile.wallet_address);
+      senderPublicKey = new PublicKey(senderProfile.wallet_address);
+    }
+    
+    // Verify we have a valid sender public key
+    if (!senderPublicKey) {
+      throw new Error('Failed to determine sender public key');
+    }
+    
+    console.log('Using sender public key:', senderPublicKey.toBase58());
     
     // Derive the PDA for the escrow account
+    console.log('Deriving escrow PDA with:');
+    console.log('- Sender:', senderPublicKey.toBase58());
+    console.log('- Recipient:', wallet.publicKey.toBase58());
+    console.log('- Message ID:', messageId);
+    
     const [escrowPDA, bump] = await deriveMessageEscrowPDA(
       senderPublicKey,
       wallet.publicKey,
@@ -385,21 +493,24 @@ export const approveMessagePayment = async (
       program
     );
     
-    console.log('Sender public key:', senderPublicKey.toBase58());
-    console.log('Recipient public key:', wallet.publicKey.toBase58());
-    console.log('Message ID (used as seed):', messageId);
-    console.log('Escrow PDA:', escrowPDA.toBase58());
+    console.log('Escrow PDA derived successfully:', escrowPDA.toBase58());
     console.log('PDA bump:', bump);
     
+    // Prepare transaction accounts
+    const accounts = {
+      sender: senderPublicKey,
+      recipient: wallet.publicKey,
+      messageEscrow: escrowPDA,
+      systemProgram: SystemProgram.programId,
+    };
+    
+    console.log('Transaction accounts:', accounts);
+    
     // Submit the transaction
+    console.log('Submitting approveMessagePayment transaction...');
     const tx = await program.methods
       .approveMessagePayment()
-      .accounts({
-        sender: senderPublicKey,
-        recipient: wallet.publicKey,
-        messageEscrow: escrowPDA,
-        systemProgram: SystemProgram.programId,
-      })
+      .accounts(accounts)
       .rpc();
     
     console.log('Approval transaction successful:', tx);
@@ -414,16 +525,21 @@ export const approveMessagePayment = async (
     // Improve error handling
     if (error instanceof Error) {
       const errorMessage = error.message;
+      console.error('Error details:', errorMessage);
       
       if (errorMessage.includes('ConstraintSeeds')) {
         console.error('Seeds constraint error from Anchor program.');
         throw new Error('Transaction failed due to a technical issue with the escrow account. Please try again.');
+      } else if (errorMessage.includes('Non-base58 character')) {
+        throw new Error('Transaction failed: Invalid wallet address format');
+      } else if (errorMessage.includes('Cannot read properties of undefined')) {
+        throw new Error('Transaction failed: Missing data in the transaction. This may be due to an invalid message ID or sender address.');
       } else {
         throw new Error(`Transaction failed: ${errorMessage}`);
       }
+    } else {
+      throw new Error('Transaction failed: Unknown error');
     }
-    
-    throw error;
   }
 };
 
@@ -435,14 +551,80 @@ export const rejectMessagePayment = async (
 ): Promise<string | undefined> => {
   try {
     console.log(`Rejecting message payment, message ID: ${messageId}`);
+    console.log(`Sender address provided: ${senderAddress}`);
+    console.log(`Recipient wallet address: ${wallet.publicKey.toBase58()}`);
+    
+    if (!senderAddress) {
+      console.error('Sender address is undefined or null');
+      throw new Error('Invalid sender address: The sender address is missing');
+    }
+    
+    if (!messageId) {
+      console.error('Message ID is undefined or null');
+      throw new Error('Invalid message ID: The message ID is missing');
+    }
+    
+    // Validate message ID format
+    if (!messageId.startsWith('m') || messageId.length < 4) {
+      console.error('Invalid message ID format:', messageId);
+      throw new Error('Invalid message ID format. The message ID should start with "m" followed by at least 3 characters.');
+    }
     
     // Connect to the program
     const program = await getProgram(wallet);
     
-    // Convert sender string to PublicKey
-    const senderPublicKey = new PublicKey(senderAddress);
+    // Check if senderAddress is a UUID (database ID) or a wallet address
+    let senderPublicKey;
+    
+    // If it's a UUID (not a valid base58 string), we need to fetch the wallet address
+    try {
+      senderPublicKey = new PublicKey(senderAddress);
+      console.log('Sender address is a valid public key:', senderPublicKey.toBase58());
+    } catch (error) {
+      console.log('Sender address is not a valid public key, assuming it\'s a database ID:', senderAddress);
+      
+      // Import supabase client if not already imported
+      const { supabase } = await import('./messageService');
+      
+      // Fetch the sender's wallet address from the database
+      const { data: senderProfile, error: senderError } = await supabase
+        .from('profiles')
+        .select('wallet_address')
+        .eq('id', senderAddress)
+        .single();
+      
+      if (senderError) {
+        console.error('Error fetching sender profile:', senderError);
+        throw new Error(`Failed to find sender wallet address: ${senderError.message}`);
+      }
+      
+      if (!senderProfile) {
+        console.error('Sender profile not found for ID:', senderAddress);
+        throw new Error('Sender profile not found in database');
+      }
+      
+      if (!senderProfile.wallet_address) {
+        console.error('Wallet address is missing in sender profile:', senderProfile);
+        throw new Error('Sender wallet address not found in database');
+      }
+      
+      console.log('Found sender wallet address:', senderProfile.wallet_address);
+      senderPublicKey = new PublicKey(senderProfile.wallet_address);
+    }
+    
+    // Verify we have a valid sender public key
+    if (!senderPublicKey) {
+      throw new Error('Failed to determine sender public key');
+    }
+    
+    console.log('Using sender public key:', senderPublicKey.toBase58());
     
     // Derive the PDA for the escrow account
+    console.log('Deriving escrow PDA with:');
+    console.log('- Sender:', senderPublicKey.toBase58());
+    console.log('- Recipient:', wallet.publicKey.toBase58());
+    console.log('- Message ID:', messageId);
+    
     const [escrowPDA, bump] = await deriveMessageEscrowPDA(
       senderPublicKey,
       wallet.publicKey,
@@ -450,21 +632,24 @@ export const rejectMessagePayment = async (
       program
     );
     
-    console.log('Sender public key:', senderPublicKey.toBase58());
-    console.log('Recipient public key:', wallet.publicKey.toBase58());
-    console.log('Message ID (used as seed):', messageId);
-    console.log('Escrow PDA:', escrowPDA.toBase58());
+    console.log('Escrow PDA derived successfully:', escrowPDA.toBase58());
     console.log('PDA bump:', bump);
     
+    // Prepare transaction accounts
+    const accounts = {
+      sender: senderPublicKey,
+      recipient: wallet.publicKey,
+      messageEscrow: escrowPDA,
+      systemProgram: SystemProgram.programId,
+    };
+    
+    console.log('Transaction accounts:', accounts);
+    
     // Submit the transaction
+    console.log('Submitting rejectMessagePayment transaction...');
     const tx = await program.methods
       .rejectMessagePayment()
-      .accounts({
-        sender: senderPublicKey,
-        recipient: wallet.publicKey,
-        messageEscrow: escrowPDA,
-        systemProgram: SystemProgram.programId,
-      })
+      .accounts(accounts)
       .rpc();
     
     console.log('Rejection transaction successful:', tx);
@@ -479,18 +664,107 @@ export const rejectMessagePayment = async (
     // Improve error handling
     if (error instanceof Error) {
       const errorMessage = error.message;
+      console.error('Error details:', errorMessage);
       
       if (errorMessage.includes('ConstraintSeeds')) {
         console.error('Seeds constraint error from Anchor program.');
         throw new Error('Transaction failed due to a technical issue with the escrow account. Please try again.');
+      } else if (errorMessage.includes('Non-base58 character')) {
+        throw new Error('Transaction failed: Invalid wallet address format');
+      } else if (errorMessage.includes('Cannot read properties of undefined')) {
+        throw new Error('Transaction failed: Missing data in the transaction. This may be due to an invalid message ID or sender address.');
       } else {
         throw new Error(`Transaction failed: ${errorMessage}`);
       }
+    } else {
+      throw new Error('Transaction failed: Unknown error');
     }
-    
-    throw error;
   }
 };
 
 // Add sendPayment as an alias for createMessagePayment for backward compatibility
 export const sendPayment = createMessagePayment;
+
+// Check if a message escrow account exists on the blockchain
+export const checkMessageExists = async (
+  wallet: AnchorWallet,
+  senderAddress: string,
+  messageId: string
+): Promise<boolean> => {
+  try {
+    console.log(`Checking if message exists, message ID: ${messageId}`);
+    console.log(`Sender address provided: ${senderAddress}`);
+    console.log(`Recipient wallet address: ${wallet.publicKey.toBase58()}`);
+    
+    if (!senderAddress || !messageId) {
+      console.error('Missing required parameters:', { senderAddress, messageId });
+      return false;
+    }
+    
+    // Validate message ID format
+    if (!messageId.startsWith('m') || messageId.length < 4) {
+      console.error('Invalid message ID format:', messageId);
+      console.error('Message ID should start with "m" followed by at least 3 characters');
+      return false;
+    }
+    
+    // Connect to the program
+    const program = await getProgram(wallet);
+    
+    // Check if senderAddress is a UUID (database ID) or a wallet address
+    let senderPublicKey;
+    
+    // If it's a UUID (not a valid base58 string), we need to fetch the wallet address
+    try {
+      senderPublicKey = new PublicKey(senderAddress);
+      console.log('Sender address is a valid public key:', senderPublicKey.toBase58());
+    } catch (error) {
+      console.log('Sender address is not a valid public key, assuming it\'s a database ID:', senderAddress);
+      
+      // Import supabase client if not already imported
+      const { supabase } = await import('./messageService');
+      
+      // Fetch the sender's wallet address from the database
+      const { data: senderProfile, error: senderError } = await supabase
+        .from('profiles')
+        .select('wallet_address')
+        .eq('id', senderAddress)
+        .single();
+      
+      if (senderError || !senderProfile || !senderProfile.wallet_address) {
+        console.error('Error fetching sender profile:', senderError || 'No profile or wallet address found');
+        return false;
+      }
+      
+      console.log('Found sender wallet address:', senderProfile.wallet_address);
+      senderPublicKey = new PublicKey(senderProfile.wallet_address);
+    }
+    
+    // Derive the PDA for the escrow account
+    console.log('Deriving PDA with message ID:', messageId);
+    console.log('Using first 4 characters for seed:', messageId.slice(0, 4));
+    
+    const [escrowPDA, bump] = await deriveMessageEscrowPDA(
+      senderPublicKey,
+      wallet.publicKey,
+      messageId,
+      program
+    );
+    
+    console.log('Escrow PDA derived:', escrowPDA.toBase58());
+    console.log('PDA bump:', bump);
+    
+    // Check if the account exists
+    const provider = getProvider(wallet);
+    const connection = provider.connection;
+    const accountInfo = await connection.getAccountInfo(escrowPDA);
+    
+    const exists = accountInfo !== null;
+    console.log(`Message escrow account ${exists ? 'exists' : 'does not exist'} on-chain`);
+    
+    return exists;
+  } catch (error) {
+    console.error('Error checking if message exists:', error);
+    return false;
+  }
+};

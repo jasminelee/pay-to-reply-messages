@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Check, Clock, EyeIcon, MessageSquare, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,8 +15,9 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { formatAmount, formatDate, getStatusColor } from '@/utils/mockData';
 import { useToast } from '@/hooks/use-toast';
 import { useWallet } from '@/contexts/WalletContext';
-import { approveMessagePayment, rejectMessagePayment } from '@/utils/anchorClient';
+import { approveMessagePayment, rejectMessagePayment, checkMessageExists } from '@/utils/anchorClient';
 import { updateMessageStatus, MessageData } from '@/utils/messageService';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MessageCardProps {
   message: MessageData;
@@ -80,55 +80,130 @@ const MessageCard = ({ message, variant = 'full', onMessageUpdated }: MessageCar
         throw new Error('Failed to get wallet');
       }
 
-      // Use the message ID from the database
+      // Use the message_id from the database, not the UUID id
       const messageId = message.message_id;
       
-      let txSignature = '';
+      // Log message details for debugging
+      console.log('Message details:', {
+        id: message.id, // Database UUID
+        message_id: message.message_id, // Blockchain message ID
+        sender_id: message.sender_id,
+        recipient_id: message.recipient_id,
+        status: message.status,
+        amount: message.amount,
+        transaction_signature: message.transaction_signature
+      });
+      
+      if (!messageId) {
+        throw new Error('Message ID is missing');
+      }
+      
+      // Get the sender's wallet address
+      const { data: senderProfile, error: senderError } = await supabase
+        .from('profiles')
+        .select('wallet_address')
+        .eq('id', message.sender_id)
+        .single();
+      
+      if (senderError || !senderProfile) {
+        console.error('Error fetching sender profile:', senderError);
+        throw new Error('Could not find sender wallet address');
+      }
+      
+      const senderWalletAddress = senderProfile.wallet_address;
+      if (!senderWalletAddress) {
+        throw new Error('Sender wallet address is missing');
+      }
+      
+      console.log('Sender wallet address:', senderWalletAddress);
+      
+      let transactionSignature: string | undefined;
       
       if (confirmAction === 'approve') {
-        // Execute approve transaction
-        const tx = await approveMessagePayment(wallet, message.sender_id, messageId);
-        txSignature = tx || '';
+        // Approve the message payment
+        transactionSignature = await approveMessagePayment(
+          wallet,
+          senderWalletAddress,
+          messageId
+        );
         
-        // Update message status in database
-        await updateMessageStatus(messageId, 'approved', txSignature);
+        if (!transactionSignature) {
+          throw new Error('Failed to approve message payment');
+        }
+        
+        console.log('Message approved with transaction:', transactionSignature);
+        
+        // Update the message status in the database
+        const updateResult = await updateMessageStatus(
+          messageId,
+          'approved',
+          transactionSignature
+        );
+        
+        if (!updateResult) {
+          console.error('Failed to update message status in database');
+          // Continue anyway since the blockchain transaction was successful
+        }
         
         toast({
           title: 'Message Approved',
-          description: `You've approved the message and received ${formatAmount(parseFloat(message.amount as any))}.`,
+          description: `You have approved the message and received ${formatAmount(message.amount)}.`,
         });
-        
-        console.log('Approval transaction:', tx);
       } else if (confirmAction === 'reject') {
-        // Execute reject transaction
-        const tx = await rejectMessagePayment(wallet, message.sender_id, messageId);
-        txSignature = tx || '';
+        // Reject the message payment
+        transactionSignature = await rejectMessagePayment(
+          wallet,
+          senderWalletAddress,
+          messageId
+        );
         
-        // Update message status in database
-        await updateMessageStatus(messageId, 'rejected', txSignature);
+        if (!transactionSignature) {
+          throw new Error('Failed to reject message payment');
+        }
+        
+        console.log('Message rejected with transaction:', transactionSignature);
+        
+        // Update the message status in the database
+        const updateResult = await updateMessageStatus(
+          messageId,
+          'rejected',
+          transactionSignature
+        );
+        
+        if (!updateResult) {
+          console.error('Failed to update message status in database');
+          // Continue anyway since the blockchain transaction was successful
+        }
         
         toast({
           title: 'Message Rejected',
-          description: `You've rejected the message. The payment has been returned.`,
+          description: `You have rejected the message. The payment has been returned to the sender.`,
         });
-        
-        console.log('Rejection transaction:', tx);
       }
       
-      // Notify parent component to refresh messages
+      // Close the message dialog
+      setIsOpen(false);
+      
+      // Call the onMessageUpdated callback to refresh the messages list
       if (onMessageUpdated) {
         onMessageUpdated();
       }
     } catch (error) {
       console.error('Error processing message:', error);
+      
+      let errorMessage = 'Failed to process the message. Please try again.';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
-        title: 'Transaction Failed',
-        description: `Failed to ${confirmAction} the message. Please try again. ${error instanceof Error ? error.message : ''}`,
+        title: 'Error',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
       setIsProcessing(false);
-      setIsOpen(false);
     }
   };
 

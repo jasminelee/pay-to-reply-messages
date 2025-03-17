@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useState, useEffect } from 'react';
 import { Send, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,10 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { toast } from '@/components/ui/use-toast';
 import { formatAmount } from '@/utils/mockData';
-import { users } from '@/utils/mockData';
 import { useWallet } from '@/contexts/WalletContext';
 import { createMessagePayment } from '@/utils/anchorClient';
-import { v4 as uuidv4 } from 'uuid'; 
+import { supabase } from "@/integrations/supabase/client";
 
 interface ComposeMessageProps {
   onSuccess?: () => void;
@@ -19,22 +18,47 @@ interface ComposeMessageProps {
   streamlined?: boolean;
 }
 
-// Mock addresses for users
-const USER_ADDRESSES: Record<string, string> = {
-  'jasmineflee': '8rRSCYJWGrgEnBXUHtgUMseNBfkrXLHVQvVmvn7Puqp4',
-  'mikezhang': 'DM5gyrYPj5jfRGKT6BbLJVrYxpJ9pZMWuP1gCvxBMrcg',
-  'sarahkim': 'CxDc845MD8jxYbGjUCjQ5GHVH1Ex4UEwxK6JmGGZT7vF',
-  'willsmith': 'BN3gGhxPcn2YxFL1QZsmPqDf3WrDMEZtjzdFm4SJzgdT',
-  'taylorj': 'Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS',
-  'jasminedev83632': 'YpKSaahsrmwAnpY4b2mBKf1BFdaw5L4WL1EvZ5ThzZ'
-};
+interface Profile {
+  id: string;
+  username: string;
+  wallet_address: string;
+  avatar_url?: string;
+}
 
 const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: ComposeMessageProps) => {
   const [recipient, setRecipient] = useState<string>(preselectedRecipient || '');
   const [message, setMessage] = useState<string>('');
   const [amount, setAmount] = useState<number>(0.5);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [isLoadingProfiles, setIsLoadingProfiles] = useState<boolean>(false);
   const { isConnected, getAnchorWallet, balance, refreshBalance } = useWallet();
+
+  // Fetch profiles from the database
+  useEffect(() => {
+    const fetchProfiles = async () => {
+      setIsLoadingProfiles(true);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, username, wallet_address, avatar_url')
+          .order('username');
+        
+        if (error) {
+          console.error('Error fetching profiles:', error);
+          return;
+        }
+        
+        setProfiles(data || []);
+      } catch (error) {
+        console.error('Error in fetchProfiles:', error);
+      } finally {
+        setIsLoadingProfiles(false);
+      }
+    };
+    
+    fetchProfiles();
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -79,16 +103,18 @@ const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: Compos
       return;
     }
     
-    // Get the recipient's address
-    const recipientAddress = USER_ADDRESSES[recipient];
-    if (!recipientAddress) {
+    // Get the recipient's address from the profiles
+    const recipientProfile = profiles.find(p => p.username === recipient);
+    if (!recipientProfile || !recipientProfile.wallet_address) {
       toast({
         title: 'Invalid Recipient',
-        description: 'Could not find address for the selected recipient.',
+        description: 'Could not find wallet address for the selected recipient.',
         variant: 'destructive',
       });
       return;
     }
+    
+    const recipientAddress = recipientProfile.wallet_address;
     
     setIsSubmitting(true);
     
@@ -198,53 +224,62 @@ const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: Compos
           className="w-full bg-primary hover:bg-primary/90 transition-all duration-300 shadow-button"
           disabled={isSubmitting}
         >
-          <Send className="h-4 w-4 mr-2" />
-          {isSubmitting ? 'Sending...' : 'Send Message'}
+          {isSubmitting ? 'Sending...' : 'Send Message with Payment'}
         </Button>
       </form>
     );
   }
 
   return (
-    <Card className="glass-card max-w-xl mx-auto">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Compose Message</CardTitle>
+    <Card className="glass-card border-none shadow-lg">
+      <CardHeader>
+        <CardTitle>Compose Message</CardTitle>
         <CardDescription>
-          Send a direct message with a payment. Recipients can approve or reject your message.
+          Send a message with SOL payment. The recipient will need to approve your message to receive the payment.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="recipient">Recipient</Label>
-            <Select 
-              value={recipient} 
+            <Select
+              value={recipient}
               onValueChange={setRecipient}
-              disabled={!!preselectedRecipient}
+              disabled={!!preselectedRecipient || isLoadingProfiles}
             >
-              <SelectTrigger id="recipient" className="glass-input">
-                <SelectValue placeholder="Select a recipient" />
+              <SelectTrigger className="glass-input">
+                {isLoadingProfiles ? (
+                  <span className="text-muted-foreground">Loading profiles...</span>
+                ) : recipient ? (
+                  <span>@{recipient}</span>
+                ) : (
+                  <span className="text-muted-foreground">Select a recipient</span>
+                )}
               </SelectTrigger>
               <SelectContent className="glass-panel">
-                {users
-                  .filter(user => user.id !== 'user-1') // Filter out current user
-                  .map(user => (
-                    <SelectItem key={user.id} value={user.username}>
+                {isLoadingProfiles ? (
+                  <div className="p-2 text-center text-muted-foreground">Loading profiles...</div>
+                ) : profiles.length === 0 ? (
+                  <div className="p-2 text-center text-muted-foreground">No profiles found</div>
+                ) : (
+                  profiles.map(profile => (
+                    <SelectItem key={profile.id} value={profile.username}>
                       <div className="flex items-center space-x-2">
                         <User className="h-4 w-4" />
-                        <span>@{user.username}</span>
+                        <span>@{profile.username}</span>
                       </div>
                     </SelectItem>
-                  ))}
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="message">Message</Label>
             <Textarea
               id="message"
-              placeholder="Type your message here..."
+              placeholder="Write your message here..."
               className="glass-input min-h-32 resize-none"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
@@ -253,7 +288,7 @@ const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: Compos
               {message.length} characters
             </p>
           </div>
-          
+
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="amount">Payment Amount ({formatAmount(amount)})</Label>
@@ -272,14 +307,22 @@ const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: Compos
             </div>
           </div>
         </CardContent>
+
         <CardFooter>
           <Button 
             type="submit" 
             className="w-full bg-primary hover:bg-primary/90 transition-all duration-300 shadow-button"
             disabled={isSubmitting}
           >
-            <Send className="h-4 w-4 mr-2" />
-            {isSubmitting ? 'Sending...' : 'Send Message'}
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <span className="animate-spin">⏳</span> Sending...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Send className="h-4 w-4" /> Send Message with Payment
+              </span>
+            )}
           </Button>
         </CardFooter>
       </form>

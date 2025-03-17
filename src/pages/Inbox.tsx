@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Filter, Search, RefreshCw, Database } from 'lucide-react';
+import { Filter, Search, RefreshCw, Database, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -14,7 +14,7 @@ import Layout from '@/components/Layout';
 import MessageCard from '@/components/MessageCard';
 import { useWallet } from '@/contexts/WalletContext';
 import { useToast } from '@/components/ui/use-toast';
-import { fetchMessages, MessageData, fixDatabaseIssues } from '@/utils/messageService';
+import { fetchMessages, MessageData, fixDatabaseIssues, fixMessageIds } from '@/utils/messageService';
 
 const statusOptions = [
   { value: 'all', label: 'All' },
@@ -45,6 +45,7 @@ const Inbox = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
+  const [isFixingMessageIds, setIsFixingMessageIds] = useState(false);
   
   // Load messages from Supabase
   const loadMessages = useCallback(async () => {
@@ -159,6 +160,34 @@ const Inbox = () => {
     }
   };
 
+  // Fix message IDs
+  const handleFixMessageIds = async () => {
+    if (isFixingMessageIds) return;
+    
+    setIsFixingMessageIds(true);
+    try {
+      await fixMessageIds();
+      
+      toast({
+        title: "Message IDs Fixed",
+        description: "Message IDs have been updated to the correct format. Check the console for details.",
+      });
+      
+      // Refresh messages after fixing
+      loadMessages();
+    } catch (error) {
+      console.error('Error fixing message IDs:', error);
+      
+      toast({
+        title: "Fix Failed",
+        description: "There was a problem fixing message IDs. Check the console for details.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsFixingMessageIds(false);
+    }
+  };
+
   // Refresh messages after approval/rejection
   const refreshMessages = () => {
     loadMessages();
@@ -202,6 +231,17 @@ const Inbox = () => {
                 title="Fix Database Issues"
               >
                 <Database className={`h-4 w-4 ${isFixing ? 'animate-pulse' : ''}`} />
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={handleFixMessageIds} 
+                disabled={isFixingMessageIds}
+                className="h-10 w-10"
+                title="Fix Message IDs"
+              >
+                <Key className={`h-4 w-4 ${isFixingMessageIds ? 'animate-pulse' : ''}`} />
               </Button>
             </div>
             
