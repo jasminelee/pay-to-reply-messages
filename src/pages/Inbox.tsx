@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Filter, Search, RefreshCw, Database, Key, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Layout from '@/components/Layout';
 import MessageCard from '@/components/MessageCard';
 import { useWallet } from '@/contexts/WalletContext';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { fetchMessages, MessageData, fixDatabaseIssues, fixMessageIds, debugCheckMessages } from '@/utils/messageService';
 import { AlertTriangle, Wallet } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -59,7 +58,6 @@ const Inbox = () => {
   const [isDebugChecking, setIsDebugChecking] = useState(false);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   
-  // Load messages from Supabase
   const loadMessages = useCallback(async () => {
     if (!isConnected || !walletAddress) return;
     
@@ -70,7 +68,6 @@ const Inbox = () => {
     try {
       console.log('Loading messages for wallet:', walletAddress);
       
-      // Try to load messages with additional error handling
       let receivedResult: MessageData[] = [];
       let sentResult: MessageData[] = [];
       
@@ -102,7 +99,6 @@ const Inbox = () => {
       setSentMessages(sentResult);
       
       if (receivedResult.length === 0 && sentResult.length === 0) {
-        // If no messages were found, automatically run a debug check
         try {
           console.log('No messages found, running debug check...');
           const debugResult = await debugCheckMessages(walletAddress);
@@ -135,22 +131,17 @@ const Inbox = () => {
     }
   }, [walletAddress, isConnected, toast]);
   
-  // Initial load
   useEffect(() => {
     loadMessages();
   }, [loadMessages]);
   
-  // Filter and sort messages
   useEffect(() => {
-    // Get base messages depending on tab
     let messages = tab === 'received' ? receivedMessages : sentMessages;
     
-    // Apply status filter
     if (statusFilter !== 'all') {
       messages = messages.filter(msg => msg.status === statusFilter);
     }
     
-    // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       messages = messages.filter(
@@ -160,7 +151,6 @@ const Inbox = () => {
       );
     }
     
-    // Apply sorting
     messages = [...messages].sort((a, b) => {
       switch (sortBy) {
         case 'newest':
@@ -178,8 +168,7 @@ const Inbox = () => {
     
     setFilteredMessages(messages);
   }, [tab, statusFilter, sortBy, searchQuery, receivedMessages, sentMessages]);
-
-  // Refresh messages manually
+  
   const handleRefresh = () => {
     if (isRefreshing || isLoading) return;
     
@@ -192,7 +181,6 @@ const Inbox = () => {
     });
   };
 
-  // Fix database issues
   const handleFixDatabase = async () => {
     if (isFixing) return;
     
@@ -205,7 +193,6 @@ const Inbox = () => {
         description: "Check the console for details on what was fixed.",
       });
       
-      // Refresh messages after fixing
       loadMessages();
     } catch (error) {
       console.error('Error fixing database:', error);
@@ -220,7 +207,6 @@ const Inbox = () => {
     }
   };
 
-  // Fix message IDs
   const handleFixMessageIds = async () => {
     if (isFixingMessageIds) return;
     
@@ -233,7 +219,6 @@ const Inbox = () => {
         description: "Message IDs have been updated to the correct format. Check the console for details.",
       });
       
-      // Refresh messages after fixing
       loadMessages();
     } catch (error) {
       console.error('Error fixing message IDs:', error);
@@ -248,7 +233,6 @@ const Inbox = () => {
     }
   };
 
-  // Debug check current user's messages
   const handleDebugCheck = async () => {
     if (!walletAddress || isDebugChecking) return;
     
@@ -281,7 +265,6 @@ const Inbox = () => {
           description: `Found ${result.stats?.totalMessages || 0} total messages (${result.stats?.receivedMessages || 0} received, ${result.stats?.sentMessages || 0} sent)`,
         });
         
-        // If messages were found in debug but not loaded properly, show this info
         if ((result.stats?.totalMessages || 0) > 0 && 
             (receivedMessages.length + sentMessages.length === 0)) {
           setErrorDetails(`Debug found ${result.stats?.totalMessages} messages in the database, but they couldn't be loaded. Check console for details.`);
@@ -300,7 +283,6 @@ const Inbox = () => {
     }
   };
 
-  // Refresh messages after approval/rejection
   const refreshMessages = () => {
     loadMessages();
   };
