@@ -50,14 +50,17 @@ export const fetchMessages = async (
       // If the profile doesn't exist, create one
       if (profileError.code === 'PGRST116') {
         console.log('Profile not found, creating a new one');
+        
+        // Generate a UUID for the new profile
+        const newProfileId = crypto.randomUUID();
+        
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
-          .insert([
-            {
-              wallet_address: walletAddress,
-              username: `user_${walletAddress.substring(0, 8)}`
-            }
-          ])
+          .insert({
+            id: newProfileId,
+            wallet_address: walletAddress,
+            username: `user_${walletAddress.substring(0, 8)}`
+          })
           .select('id, username')
           .single();
         
@@ -318,14 +321,16 @@ export const saveMessage = async (
     
     if (senderProfileError || !senderProfile) {
       console.log('Sender profile not found, creating a new one');
+      // Generate a UUID for the new profile
+      const newSenderId = crypto.randomUUID();
+      
       const { data: newSenderProfile, error: newSenderError } = await supabase
         .from('profiles')
-        .insert([
-          {
-            wallet_address: senderWalletAddress,
-            username: `user_${senderWalletAddress.substring(0, 8)}`
-          }
-        ])
+        .insert({
+          id: newSenderId,
+          wallet_address: senderWalletAddress,
+          username: `user_${senderWalletAddress.substring(0, 8)}`
+        })
         .select('id')
         .single();
       
@@ -350,14 +355,17 @@ export const saveMessage = async (
     
     if (recipientProfileError || !recipientProfile) {
       console.log('Recipient profile not found, creating a new one');
+      
+      // Generate a UUID for the new profile
+      const newRecipientId = crypto.randomUUID();
+      
       const { data: newRecipientProfile, error: newRecipientError } = await supabase
         .from('profiles')
-        .insert([
-          {
-            wallet_address: recipientWalletAddress,
-            username: `user_${recipientWalletAddress.substring(0, 8)}`
-          }
-        ])
+        .insert({
+          id: newRecipientId,
+          wallet_address: recipientWalletAddress,
+          username: `user_${recipientWalletAddress.substring(0, 8)}`
+        })
         .select('id')
         .single();
       

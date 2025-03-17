@@ -3,6 +3,7 @@ import { Program, AnchorProvider, Idl } from "@coral-xyz/anchor";
 import { PublicKey, SystemProgram, Transaction, VersionedTransaction, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { BN } from "bn.js";
 import { saveMessage, updateMessageStatus } from './messageService';
+import { supabase } from "@/integrations/supabase/client";
 
 // AnchorWallet interface definition updated to match Anchor's Wallet type
 export interface AnchorWallet {
@@ -444,9 +445,6 @@ export const approveMessagePayment = async (
     } catch (error) {
       console.log('Sender address is not a valid public key, assuming it\'s a database ID:', senderAddress);
       
-      // Import supabase client if not already imported
-      const { supabase } = await import('./messageService');
-      
       // Fetch the sender's wallet address from the database
       const { data: senderProfile, error: senderError } = await supabase
         .from('profiles')
@@ -583,9 +581,6 @@ export const rejectMessagePayment = async (
     } catch (error) {
       console.log('Sender address is not a valid public key, assuming it\'s a database ID:', senderAddress);
       
-      // Import supabase client if not already imported
-      const { supabase } = await import('./messageService');
-      
       // Fetch the sender's wallet address from the database
       const { data: senderProfile, error: senderError } = await supabase
         .from('profiles')
@@ -720,9 +715,6 @@ export const checkMessageExists = async (
       console.log('Sender address is a valid public key:', senderPublicKey.toBase58());
     } catch (error) {
       console.log('Sender address is not a valid public key, assuming it\'s a database ID:', senderAddress);
-      
-      // Import supabase client if not already imported
-      const { supabase } = await import('./messageService');
       
       // Fetch the sender's wallet address from the database
       const { data: senderProfile, error: senderError } = await supabase
