@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 export type MessageStatus = 'pending' | 'approved' | 'rejected';
@@ -80,9 +81,17 @@ export const fetchMessages = async (
     let query = supabase
       .from('messages')
       .select(`
-        *,
-        sender:profiles(id, username, avatar_url),
-        recipient:profiles(id, username, avatar_url)
+        id, 
+        sender_id, 
+        recipient_id, 
+        amount, 
+        created_at, 
+        message_id, 
+        content, 
+        status, 
+        transaction_signature,
+        sender:sender_id(id, username, avatar_url),
+        recipient:recipient_id(id, username, avatar_url)
       `);
     
     if (type === 'received') {
