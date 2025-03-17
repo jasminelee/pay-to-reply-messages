@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { MessageData, updateMessageStatus } from "@/utils/messageService";
-import { formatAmount, formatDateTime } from "@/utils/mockData";
+import { formatAmount, formatDate } from "@/utils/mockData";
 import { useWallet } from "@/contexts/WalletContext";
 import { toast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -200,7 +200,7 @@ const MessageCard: React.FC<MessageCardProps> = ({
                   : `From: ${message.senderUsername || 'Unknown User'}`
                 }
               </CardTitle>
-              <CardDescription>{formatDateTime(message.created_at)}</CardDescription>
+              <CardDescription>{formatDate(message.created_at)}</CardDescription>
             </div>
           </div>
           <div className="flex flex-col items-end gap-1">

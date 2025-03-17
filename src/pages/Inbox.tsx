@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { Filter, Search, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -263,7 +264,7 @@ const Inbox = () => {
                     <div key={message.id} className="animate-scale-in" style={{animationDelay: `${index * 50}ms`}}>
                       <MessageCard 
                         message={message} 
-                        onMessageUpdated={refreshMessages}
+                        onRefresh={refreshMessages}
                       />
                     </div>
                   ))}
@@ -291,7 +292,7 @@ const Inbox = () => {
                     <div key={message.id} className="animate-scale-in" style={{animationDelay: `${index * 50}ms`}}>
                       <MessageCard 
                         message={message}
-                        onMessageUpdated={refreshMessages}
+                        onRefresh={refreshMessages}
                       />
                     </div>
                   ))}
