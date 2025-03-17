@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export type MessageStatus = 'pending' | 'approved' | 'rejected';
@@ -722,13 +721,13 @@ if (typeof window !== 'undefined') {
       
       console.log(`Found profile:`, profile);
       
-      // Get all messages for this profile
+      // Get all messages for this profile with the proper foreign key constraint names
       const { data: messages, error: messagesError } = await supabase
         .from('messages')
         .select(`
           *,
-          sender:profiles(id, username, avatar_url),
-          recipient:profiles(id, username, avatar_url)
+          sender:profiles!fk_sender_profile(id, username, avatar_url),
+          recipient:profiles!fk_recipient_profile(id, username, avatar_url)
         `)
         .or(`sender_id.eq.${profile.id},recipient_id.eq.${profile.id}`);
       
@@ -823,14 +822,14 @@ export const debugCheckMessages = async (walletAddress: string) => {
     console.log('Direct check - Is sender in any message:', isSender);
     console.log('Direct check - Is recipient in any message:', isRecipient);
     
-    // Try querying directly without .single()
-    console.log('Attempting direct query...');
+    // Try querying directly with the proper foreign key constraint names
+    console.log('Attempting direct query with proper constraint names...');
     const { data: directData, error: directError } = await supabase
       .from('messages')
       .select(`
         *,
-        sender:profiles(id, username, avatar_url),
-        recipient:profiles(id, username, avatar_url)
+        sender:profiles!fk_sender_profile(id, username, avatar_url),
+        recipient:profiles!fk_recipient_profile(id, username, avatar_url)
       `)
       .or(`sender_id.eq.${profile.id},recipient_id.eq.${profile.id}`);
     
@@ -927,13 +926,13 @@ if (typeof window !== 'undefined') {
       
       console.log(`Found profile:`, profile);
       
-      // Get all messages for this profile
+      // Get all messages for this profile with the proper foreign key constraint names
       const { data: messages, error: messagesError } = await supabase
         .from('messages')
         .select(`
           *,
-          sender:profiles(id, username, avatar_url),
-          recipient:profiles(id, username, avatar_url)
+          sender:profiles!fk_sender_profile(id, username, avatar_url),
+          recipient:profiles!fk_recipient_profile(id, username, avatar_url)
         `)
         .or(`sender_id.eq.${profile.id},recipient_id.eq.${profile.id}`);
       
