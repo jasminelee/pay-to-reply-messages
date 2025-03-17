@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import Layout from '@/components/Layout';
-import MessageCard from '@/components/MessageCard';
+import MessageCard from '@/components/UpdatedMessageCard';
 import TransactionHistory from '@/components/TransactionHistory';
 import { formatAmount } from '@/utils/mockData';
 import { useWallet } from '@/contexts/WalletContext';

@@ -5,41 +5,26 @@
   "instructions": [
     {
       "name": "createMessagePayment",
-      "docs": [
-        "Sends SOL from the sender to an escrow account as part of a message payment"
-      ],
       "accounts": [
         {
           "name": "sender",
           "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "The account sending SOL, must be a signer"
-          ]
+          "isSigner": true
         },
         {
           "name": "recipient",
           "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "The account that will receive SOL if approved"
-          ]
+          "isSigner": false
         },
         {
           "name": "messageEscrow",
           "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "The escrow account that will hold the SOL temporarily"
-          ]
+          "isSigner": false
         },
         {
           "name": "systemProgram",
           "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "The system program, used for transfers and account creation"
-          ]
+          "isSigner": false
         }
       ],
       "args": [
@@ -55,85 +40,81 @@
     },
     {
       "name": "approveMessagePayment",
-      "docs": [
-        "Approves a message payment, transferring SOL from escrow to recipient"
-      ],
       "accounts": [
         {
           "name": "sender",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "The original sender of the payment"
-          ]
+          "isMut": false,
+          "isSigner": false
         },
         {
           "name": "recipient",
           "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "The recipient of the payment, must be a signer"
-          ]
+          "isSigner": true
         },
         {
           "name": "messageEscrow",
           "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "The escrow account holding the SOL"
-          ]
+          "isSigner": false
         },
         {
           "name": "systemProgram",
           "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "The system program, used for transfers"
-          ]
+          "isSigner": false
         }
       ],
       "args": []
     },
     {
       "name": "rejectMessagePayment",
-      "docs": [
-        "Rejects a message payment, returning SOL from escrow to sender"
-      ],
       "accounts": [
         {
           "name": "sender",
           "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "The original sender of the payment"
-          ]
+          "isSigner": false
         },
         {
           "name": "recipient",
-          "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "The recipient of the payment, must be a signer"
-          ]
+          "isMut": false,
+          "isSigner": true
         },
         {
           "name": "messageEscrow",
           "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "The escrow account holding the SOL"
-          ]
+          "isSigner": false
         },
         {
           "name": "systemProgram",
           "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "The system program, used for transfers"
-          ]
+          "isSigner": false
         }
       ],
       "args": []
+    },
+    {
+      "name": "donateFunds",
+      "accounts": [
+        {
+          "name": "donor",
+          "isMut": true,
+          "isSigner": true
+        },
+        {
+          "name": "donationAddress",
+          "isMut": true,
+          "isSigner": false
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
     }
   ],
   "accounts": [
@@ -211,8 +192,5 @@
       "name": "InvalidSender",
       "msg": "Invalid sender"
     }
-  ],
-  "metadata": {
-    "address": "GPS2swU3p4XGWisAh3n4QWQuMvrQdfnz2eSwME2dp66A"
-  }
+  ]
 }

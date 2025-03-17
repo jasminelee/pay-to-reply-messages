@@ -76,8 +76,7 @@ pub mod pay_to_reply {
         let escrow_info = ctx.accounts.message_escrow.to_account_info();
         let escrow_balance = **escrow_info.lamports.borrow();
         
-        // Keep some lamports for rent exemption (this is a simplification, in production
-        // you'd want to calculate exact rent exemption)
+        // Keep some lamports for rent exemption
         let rent = Rent::get()?;
         let data_len = escrow_info.data_len();
         let rent_exemption = rent.minimum_balance(data_len);
@@ -144,6 +143,38 @@ pub mod pay_to_reply {
 
         Ok(())
     }
+
+    /// Donates funds from the donor to a charity/donation address
+    pub fn donate_funds(
+        ctx: Context<DonateFunds>,
+        amount: u64,
+    ) -> Result<()> {
+        // Transfer SOL from donor to donation address
+        let transfer_instruction = system_instruction::transfer(
+            &ctx.accounts.donor.key(),
+            &ctx.accounts.donation_address.key(),
+            amount,
+        );
+
+        // Execute the transfer instruction
+        anchor_lang::solana_program::program::invoke(
+            &transfer_instruction,
+            &[
+                ctx.accounts.donor.to_account_info(),
+                ctx.accounts.donation_address.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+        )?;
+
+        msg!(
+            "Donation processed: {} lamports from {} to donation address {}",
+            amount,
+            ctx.accounts.donor.key(),
+            ctx.accounts.donation_address.key()
+        );
+
+        Ok(())
+    }
 }
 
 /// Context for creating a message payment
@@ -199,6 +230,22 @@ pub struct ProcessMessagePayment<'info> {
         constraint = message_escrow.recipient == recipient.key() @ EscrowError::InvalidRecipient
     )]
     pub message_escrow: Account<'info, MessageEscrow>,
+    
+    /// The system program, used for transfers
+    pub system_program: Program<'info, System>,
+}
+
+/// Context for donating funds
+#[derive(Accounts)]
+pub struct DonateFunds<'info> {
+    /// The account donating SOL, must be a signer
+    #[account(mut)]
+    pub donor: Signer<'info>,
+    
+    /// The donation address that will receive SOL
+    /// CHECK: This is safe because we're only transferring to this account
+    #[account(mut)]
+    pub donation_address: AccountInfo<'info>,
     
     /// The system program, used for transfers
     pub system_program: Program<'info, System>,

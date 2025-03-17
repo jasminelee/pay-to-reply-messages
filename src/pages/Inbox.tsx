@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Layout from '@/components/Layout';
-import MessageCard from '@/components/MessageCard';
+import MessageCard from '@/components/UpdatedMessageCard';
 import { useWallet } from '@/contexts/WalletContext';
 import { useToast } from '@/hooks/use-toast';
 import { fetchMessages, MessageData } from '@/utils/messageService';
