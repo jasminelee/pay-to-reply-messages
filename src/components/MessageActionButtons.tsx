@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Check, X, Heart, Reply } from "lucide-react";
@@ -30,7 +29,7 @@ const MessageActionButtons: React.FC<MessageActionButtonsProps> = ({
   console.log('MessageActionButtons - isRecipient:', isRecipient);
   
   // Only show the donate option for approved messages where the user is the recipient
-  const showDonateOption = isRecipient && message.status === 'approved';
+  const showDonateOption = message.status === 'approved';
   
   // Show the approve/reject buttons only for pending messages where the user is the recipient
   const showApproveReject = isRecipient && message.status === 'pending';
