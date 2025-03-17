@@ -4,10 +4,13 @@ import { BrowserWalletAdapter } from '@/utils/browserWalletAdapter';
 import { updateMessageStatus } from '@/utils/messageService';
 import { toast } from '@/components/ui/use-toast';
 import * as anchor from '@coral-xyz/anchor';
-import { Program } from '@coral-xyz/anchor';
+import { Program, Idl } from '@coral-xyz/anchor';
 
-// Import the IDL as a plain object instead of looking for a named export
-import payToReplyIdl from '@/assets/pay_to_reply.json';
+// Import the IDL as a plain object
+import rawIdl from '@/assets/pay_to_reply.json';
+
+// Cast the imported JSON to the correct Idl type
+const payToReplyIdl = rawIdl as Idl;
 
 // Default donation address - for example, a nonprofit or charitable organization
 export const DEFAULT_DONATION_ADDRESS = "Cf3sRJG3VwPSvrRhJgxMYrYqkNnTKaSTZpNRwwREuYRJ";
@@ -57,7 +60,7 @@ export const processDonation = async (
       { commitment: "confirmed" }
     );
     
-    // Create program instance using the imported IDL directly
+    // Create program instance using the imported IDL cast to the correct type
     const program = new Program(payToReplyIdl, programId, anchorProvider);
     
     // Send the donation transaction
