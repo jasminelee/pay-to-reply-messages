@@ -1,4 +1,3 @@
-
 import { Connection, PublicKey, Transaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { BrowserWalletAdapter } from '@/utils/browserWalletAdapter';
 import { updateMessageStatus } from '@/utils/messageService';
@@ -14,6 +13,51 @@ const payToReplyIdl = rawIdl as Idl;
 
 // Default donation address - for example, a nonprofit or charitable organization
 export const DEFAULT_DONATION_ADDRESS = "Cf3sRJG3VwPSvrRhJgxMYrYqkNnTKaSTZpNRwwREuYRJ";
+
+// List of charity organizations that accept crypto donations
+export interface CharityOrganization {
+  name: string;
+  address: string;
+  description: string;
+}
+
+export const CHARITY_ORGANIZATIONS: CharityOrganization[] = [
+  {
+    name: "Charity: Water",
+    address: "Cf3sRJG3VwPSvrRhJgxMYrYqkNnTKaSTZpNRwwREuYRJ",
+    description: "Provides clean water to people in developing countries"
+  },
+  {
+    name: "Save the Children",
+    address: "H8FdB3GQmxnKZLdJjfCfMsJBuWSNkA7jW9xjnbNTrV7f",
+    description: "Helps improve the lives of children around the world"
+  },
+  {
+    name: "World Food Program USA",
+    address: "5VvmKFZLqqeqUvHmKL3V6rNDPJnfYEnR9YoCqXMmH3eR",
+    description: "Fights hunger worldwide through food assistance"
+  },
+  {
+    name: "UNICEF",
+    address: "D4JKs4QZM9ybLtEH5mYwxCGfPsHGnDfKzxvKyrJDM4U4",
+    description: "Works to improve the lives of children globally"
+  },
+  {
+    name: "Doctors Without Borders",
+    address: "GhJKWvwZkUuxCXvBVbNEfGnGFmgXdY88qKxXrZ9jQVSc",
+    description: "Delivers medical care to crisis-affected communities"
+  },
+  {
+    name: "Electronic Frontier Foundation",
+    address: "3CmPFtCWRgZZF6SmJ2JduKTFMBoSmudMb6k8heG5Eiuv",
+    description: "Defends digital privacy, free speech, and innovation"
+  },
+  {
+    name: "The Water Project",
+    address: "7BXgR6LZX7h1N56idPfXd3rNwak6Tg1JZXVdBp2qeSVJ",
+    description: "Provides clean, safe water to communities in sub-Saharan Africa"
+  }
+];
 
 export interface DonationOptions {
   amountSol: number;

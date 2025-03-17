@@ -53,7 +53,7 @@ const Layout = ({ children, requireAuth = false }: LayoutProps) => {
       <footer className="py-6 border-t border-white/5 bg-black/40 backdrop-blur-md">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <p className="text-center text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} PayToReply. All rights reserved.
+            &copy; {new Date().getFullYear()} SqueakyWheel. All rights reserved.
           </p>
         </div>
       </footer>

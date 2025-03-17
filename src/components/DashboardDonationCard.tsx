@@ -1,16 +1,29 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Heart, HeartHandshake, HandCoins, Loader2 } from "lucide-react";
+import { Heart, HeartHandshake, HandCoins, Loader2, Info } from "lucide-react";
 import { DonationDialog } from "@/components/DonationDialog";
-import { DEFAULT_DONATION_ADDRESS } from "@/utils/donationService";
+import { DEFAULT_DONATION_ADDRESS, CHARITY_ORGANIZATIONS } from "@/utils/donationService";
 import { useWallet } from "@/contexts/WalletContext";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const DashboardDonationCard = () => {
   const [donationAmount, setDonationAmount] = useState<number>(0.01);
+  const [selectedCharity, setSelectedCharity] = useState(CHARITY_ORGANIZATIONS[0].address);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { balance } = useWallet();
   
@@ -24,6 +37,9 @@ const DashboardDonationCard = () => {
   const handleOpenDonationDialog = () => {
     setIsDialogOpen(true);
   };
+
+  // Find the selected charity details
+  const selectedCharityDetails = CHARITY_ORGANIZATIONS.find(charity => charity.address === selectedCharity);
   
   return (
     <>
@@ -98,12 +114,48 @@ const DashboardDonationCard = () => {
                 0.1
               </Button>
             </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Heart className="h-4 w-4 text-pink-500/80" />
+                <span>Select charity:</span>
+              </div>
+              <Select value={selectedCharity} onValueChange={setSelectedCharity}>
+                <SelectTrigger className="border-pink-500/20 focus:ring-pink-500/50 text-sm">
+                  <SelectValue placeholder="Select a charity" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CHARITY_ORGANIZATIONS.map((charity) => (
+                    <SelectItem key={charity.address} value={charity.address}>
+                      <span className="font-medium">{charity.name}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedCharityDetails && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {selectedCharityDetails.description}
+                </p>
+              )}
+            </div>
             
             <Separator className="my-2 bg-white/5" />
             
             <div className="text-xs text-muted-foreground">
-              <p>Recipient address:</p>
-              <p className="font-mono text-[10px] truncate">{DEFAULT_DONATION_ADDRESS}</p>
+              <div className="flex items-center gap-1">
+                <p>Recipient address:</p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p className="max-w-xs">This is the wallet address where your donation will be sent.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <p className="font-mono text-[10px] truncate">{selectedCharity}</p>
             </div>
           </div>
         </CardContent>
@@ -123,6 +175,7 @@ const DashboardDonationCard = () => {
         open={isDialogOpen} 
         onOpenChange={setIsDialogOpen}
         amount={donationAmount}
+        donationAddress={selectedCharity}
         onSuccess={() => {
           setIsDialogOpen(false);
         }}
