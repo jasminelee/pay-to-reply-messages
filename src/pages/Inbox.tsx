@@ -1,5 +1,6 @@
+
 import { useState, useEffect, useCallback } from 'react';
-import { Filter, Search, RefreshCw, Database, Key } from 'lucide-react';
+import { Filter, Search, RefreshCw, Database, Key, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -14,7 +15,9 @@ import Layout from '@/components/Layout';
 import MessageCard from '@/components/MessageCard';
 import { useWallet } from '@/contexts/WalletContext';
 import { useToast } from '@/components/ui/use-toast';
-import { fetchMessages, MessageData, fixDatabaseIssues, fixMessageIds } from '@/utils/messageService';
+import { fetchMessages, MessageData, fixDatabaseIssues, fixMessageIds, debugCheckMessages } from '@/utils/messageService';
+import { AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const statusOptions = [
   { value: 'all', label: 'All' },
@@ -46,12 +49,15 @@ const Inbox = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
   const [isFixingMessageIds, setIsFixingMessageIds] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [isDebugChecking, setIsDebugChecking] = useState(false);
   
   // Load messages from Supabase
   const loadMessages = useCallback(async () => {
     if (!isConnected || !walletAddress) return;
     
     setIsLoading(true);
+    setHasError(false);
     try {
       console.log('Loading messages for wallet:', walletAddress);
       const [received, sent] = await Promise.all([
@@ -64,6 +70,7 @@ const Inbox = () => {
       console.log(`Loaded ${received.length} received and ${sent.length} sent messages`);
     } catch (error) {
       console.error('Error loading messages:', error);
+      setHasError(true);
       toast({
         title: "Error loading messages",
         description: "There was a problem loading your messages. Please try again.",
@@ -188,6 +195,50 @@ const Inbox = () => {
     }
   };
 
+  // Debug check current user's messages
+  const handleDebugCheck = async () => {
+    if (!walletAddress || isDebugChecking) return;
+    
+    setIsDebugChecking(true);
+    try {
+      toast({
+        title: "Debug Check Started",
+        description: "Checking your messages directly. See console for details.",
+      });
+      
+      const result = await debugCheckMessages(walletAddress);
+      console.log('Debug check result:', result);
+      
+      if (result.error) {
+        toast({
+          title: "Debug Check Found Issues",
+          description: result.error,
+          variant: "destructive"
+        });
+      } else if (result.messages && result.messages.length === 0) {
+        toast({
+          title: "No Messages Found",
+          description: "The database query returned no messages for your wallet address.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Debug Check Complete",
+          description: `Found ${result.stats?.totalMessages || 0} total messages (${result.stats?.receivedMessages || 0} received, ${result.stats?.sentMessages || 0} sent)`,
+        });
+      }
+    } catch (error) {
+      console.error('Error during debug check:', error);
+      toast({
+        title: "Debug Check Failed",
+        description: "There was an error during the debug check. See console for details.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDebugChecking(false);
+    }
+  };
+
   // Refresh messages after approval/rejection
   const refreshMessages = () => {
     loadMessages();
@@ -202,6 +253,16 @@ const Inbox = () => {
             Manage your direct messages with payments
           </p>
         </div>
+        
+        {hasError && (
+          <Alert variant="destructive" className="animate-fade-in">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Error loading messages</AlertTitle>
+            <AlertDescription>
+              There was a problem loading your messages. Please try refreshing or check the console for details.
+            </AlertDescription>
+          </Alert>
+        )}
         
         <Tabs defaultValue="received" className="space-y-4" onValueChange={setTab}>
           <div className="flex flex-col sm:flex-row justify-between gap-4">
@@ -242,6 +303,17 @@ const Inbox = () => {
                 title="Fix Message IDs"
               >
                 <Key className={`h-4 w-4 ${isFixingMessageIds ? 'animate-pulse' : ''}`} />
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={handleDebugCheck} 
+                disabled={isDebugChecking || !walletAddress}
+                className="h-10 w-10"
+                title="Debug Check Messages"
+              >
+                <AlertCircle className={`h-4 w-4 ${isDebugChecking ? 'animate-pulse' : ''}`} />
               </Button>
             </div>
             
@@ -298,6 +370,9 @@ const Inbox = () => {
                     Clear Filters
                   </Button>
                 )}
+                <Button variant="outline" onClick={handleDebugCheck} className="mt-4 ml-2" disabled={isDebugChecking}>
+                  Check Messages in Database
+                </Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
@@ -326,6 +401,9 @@ const Inbox = () => {
                     Clear Filters
                   </Button>
                 )}
+                <Button variant="outline" onClick={handleDebugCheck} className="mt-4 ml-2" disabled={isDebugChecking}>
+                  Check Messages in Database
+                </Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">

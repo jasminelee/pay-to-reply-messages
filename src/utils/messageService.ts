@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 export type MessageStatus = 'pending' | 'approved' | 'rejected';
@@ -112,6 +111,7 @@ export const fetchMessages = async (
     }
     
     console.log(`Found ${messages?.length || 0} messages`);
+    console.log('Raw messages data:', messages);
     
     // Format the messages
     const formattedMessages: MessageData[] = messages.map(msg => ({
@@ -130,6 +130,7 @@ export const fetchMessages = async (
       recipientUsername: msg.recipient?.username || 'Unknown User',
     }));
     
+    console.log('Formatted messages:', formattedMessages);
     return formattedMessages;
   } catch (error) {
     console.error('Error in fetchMessages:', error);
@@ -739,4 +740,99 @@ if (typeof window !== 'undefined') {
   (window as any).fixMessageIds = fixMessageIds;
   
   console.log('Database debug utilities added to window object. Use window.debugDatabase(), window.checkMessagesDirectly(walletAddress), window.fixDatabaseIssues(), or window.fixMessageIds() to debug.');
+}
+
+// Add this debug function to directly check messages for a specific wallet address
+export const debugCheckMessages = async (walletAddress: string) => {
+  try {
+    console.log(`Debug checking messages for wallet: ${walletAddress}`);
+    
+    // First, get the profile ID for this wallet address
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('wallet_address', walletAddress);
+    
+    if (profileError) {
+      console.error('Error fetching profile:', profileError);
+      return { error: 'Failed to fetch profile' };
+    }
+    
+    console.log('Found profiles:', profileData);
+    
+    if (!profileData || profileData.length === 0) {
+      console.log('No profile found for this wallet address');
+      return { error: 'No profile found for this wallet address' };
+    }
+    
+    const profile = profileData[0];
+    
+    // Now, get all messages for this profile ID (both sent and received)
+    const { data: messages, error: messagesError } = await supabase
+      .from('messages')
+      .select('*')
+      .or(`sender_id.eq.${profile.id},recipient_id.eq.${profile.id}`);
+    
+    if (messagesError) {
+      console.error('Error fetching messages:', messagesError);
+      return { error: 'Failed to fetch messages' };
+    }
+    
+    console.log(`Found ${messages.length} messages for wallet:`, walletAddress);
+    console.table(messages);
+    
+    // Get all profiles to check relationships
+    const { data: allProfiles, error: allProfilesError } = await supabase
+      .from('profiles')
+      .select('*');
+    
+    if (allProfilesError) {
+      console.error('Error fetching all profiles:', allProfilesError);
+    } else {
+      console.log('All profiles:');
+      console.table(allProfiles);
+    }
+    
+    // Check direct relationship with sender/recipient IDs
+    const relatedProfileIds = new Set();
+    messages.forEach(msg => {
+      relatedProfileIds.add(msg.sender_id);
+      relatedProfileIds.add(msg.recipient_id);
+    });
+    
+    console.log('Related profile IDs:', [...relatedProfileIds]);
+    
+    // Check if the current profile is a sender or recipient in any message
+    const isSender = messages.some(msg => msg.sender_id === profile.id);
+    const isRecipient = messages.some(msg => msg.recipient_id === profile.id);
+    
+    console.log('Direct check - Is sender in any message:', isSender);
+    console.log('Direct check - Is recipient in any message:', isRecipient);
+    
+    // Count received and sent messages
+    const receivedMessages = messages.filter(msg => msg.recipient_id === profile.id);
+    const sentMessages = messages.filter(msg => msg.sender_id === profile.id);
+    
+    console.log(`Loaded ${receivedMessages.length} received and ${sentMessages.length} sent messages`);
+    
+    return {
+      profile,
+      messages,
+      stats: {
+        totalMessages: messages.length,
+        receivedMessages: receivedMessages.length,
+        sentMessages: sentMessages.length
+      }
+    };
+  } catch (error) {
+    console.error('Error in debugCheckMessages:', error);
+    return { error: 'Exception during debug check' };
+  }
+};
+
+// Make the debug function available globally for console access
+if (typeof window !== 'undefined') {
+  (window as any).debugCheckMessages = debugCheckMessages;
+  
+  console.log('Added debugCheckMessages to window object. Use window.debugCheckMessages(walletAddress) to debug.');
 }
