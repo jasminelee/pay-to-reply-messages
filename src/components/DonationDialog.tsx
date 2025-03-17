@@ -17,7 +17,7 @@ interface DonationDialogProps {
   onSuccess?: () => void;
 }
 
-const DonationDialog: React.FC<DonationDialogProps> = ({
+export const DonationDialog: React.FC<DonationDialogProps> = ({
   open,
   onOpenChange,
   messageId,
@@ -29,6 +29,11 @@ const DonationDialog: React.FC<DonationDialogProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDonationComplete, setIsDonationComplete] = useState(false);
   const [txSignature, setTxSignature] = useState<string | null>(null);
+  
+  // Update donation amount when the prop changes
+  React.useEffect(() => {
+    setDonationAmount(amount);
+  }, [amount]);
   
   const handleDonate = async () => {
     setIsProcessing(true);
@@ -92,6 +97,16 @@ const DonationDialog: React.FC<DonationDialogProps> = ({
     setDonationAmount(isNaN(numValue) ? 0 : numValue);
   };
   
+  // Reset the dialog state when it's closed
+  React.useEffect(() => {
+    if (!open) {
+      setTimeout(() => {
+        setIsDonationComplete(false);
+        setTxSignature(null);
+      }, 300);
+    }
+  }, [open]);
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -101,7 +116,7 @@ const DonationDialog: React.FC<DonationDialogProps> = ({
             Donate to Charity
           </DialogTitle>
           <DialogDescription>
-            Donate some or all of your received payment to our partner charity.
+            Donate SOL to support open source development.
           </DialogDescription>
         </DialogHeader>
         
@@ -158,7 +173,11 @@ const DonationDialog: React.FC<DonationDialogProps> = ({
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isProcessing}>
                 Cancel
               </Button>
-              <Button onClick={handleDonate} disabled={isProcessing || donationAmount <= 0}>
+              <Button 
+                onClick={handleDonate} 
+                disabled={isProcessing || donationAmount <= 0}
+                className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white"
+              >
                 {isProcessing ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

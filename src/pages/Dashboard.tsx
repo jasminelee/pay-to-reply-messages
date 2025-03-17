@@ -14,19 +14,18 @@ import { useAuth } from '@/hooks/useAuth';
 import { AtSign } from 'lucide-react';
 import { fetchMessages, getMessageStats, MessageData } from '@/utils/messageService';
 import { useToast } from "@/hooks/use-toast";
+import DashboardDonationCard from '@/components/DashboardDonationCard';
 
 const Dashboard = () => {
   const { balance, walletAddress, isConnected } = useWallet();
   const { user, profile } = useAuth();
   const { toast } = useToast();
   
-  // State for real messages and stats
   const [receivedMessages, setReceivedMessages] = useState<MessageData[]>([]);
   const [sentMessages, setSentMessages] = useState<MessageData[]>([]);
   const [activeTab, setActiveTab] = useState('received');
   const [isLoading, setIsLoading] = useState(false);
   
-  // State for transaction/message stats
   const [messageStats, setMessageStats] = useState({
     pendingReceived: 0,
     approvedReceived: 0,
@@ -39,7 +38,6 @@ const Dashboard = () => {
   
   const [pendingTransactions, setPendingTransactions] = useState(0);
   
-  // Helper function to truncate wallet address for display
   const truncateAddress = (address: string) => {
     if (!address) return '';
     return address.length > 12 ? 
@@ -47,13 +45,11 @@ const Dashboard = () => {
       address;
   };
   
-  // Fetch messages and stats when wallet is connected
   useEffect(() => {
     const loadMessagesAndStats = async () => {
       if (isConnected && walletAddress) {
         setIsLoading(true);
         try {
-          // Fetch messages
           const [received, sent, stats] = await Promise.all([
             fetchMessages(walletAddress, 'received'),
             fetchMessages(walletAddress, 'sent'),
@@ -64,7 +60,6 @@ const Dashboard = () => {
           setSentMessages(sent);
           setMessageStats(stats);
           
-          // Calculate pending transactions amount
           const pendingAmount = received
             .filter(msg => msg.status === 'pending')
             .reduce((sum, msg) => sum + parseFloat(msg.amount as any), 0);
@@ -317,6 +312,8 @@ const Dashboard = () => {
                 </div>
               </CardContent>
             </Card>
+            
+            <DashboardDonationCard />
           </div>
         </div>
       </div>
