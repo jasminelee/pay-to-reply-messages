@@ -494,29 +494,48 @@ export const approveMessagePayment = async (
     console.log('Escrow PDA derived successfully:', escrowPDA.toBase58());
     console.log('PDA bump:', bump);
     
-    // Prepare transaction accounts
-    const accounts = {
-      sender: senderPublicKey,
-      recipient: wallet.publicKey,
-      messageEscrow: escrowPDA,
-      systemProgram: SystemProgram.programId,
-    };
+    // Get the Anchor provider and connection
+    const provider = getProvider(wallet);
+    const connection = provider.connection;
     
-    console.log('Transaction accounts:', accounts);
+    // Create a transaction instruction with proper account metadata
+    const ix = await program.methods
+      .approveMessagePayment()
+      .accounts({
+        sender: senderPublicKey,
+        recipient: wallet.publicKey,
+        messageEscrow: escrowPDA,
+        systemProgram: SystemProgram.programId,
+      })
+      .instruction();
+    
+    // Create transaction and add the instruction
+    const tx = new Transaction();
+    tx.add(ix);
+    
+    // Explicitly mark the sender account as writable in the transaction
+    // Find the sender account in the instruction accounts
+    const senderAccountMeta = tx.instructions[0].keys.find(
+      (key) => key.pubkey.equals(senderPublicKey)
+    );
+    
+    if (senderAccountMeta) {
+      console.log('Found sender account in transaction, marking as writable');
+      senderAccountMeta.isWritable = true;
+    } else {
+      console.error('Could not find sender account in transaction keys');
+    }
     
     // Submit the transaction
     console.log('Submitting approveMessagePayment transaction...');
-    const tx = await program.methods
-      .approveMessagePayment()
-      .accounts(accounts)
-      .rpc();
+    const txid = await provider.sendAndConfirm(tx);
     
-    console.log('Approval transaction successful:', tx);
+    console.log('Approval transaction successful:', txid);
     
     // Update message status in Supabase
-    await updateMessageStatus(messageId, 'approved', tx);
+    await updateMessageStatus(messageId, 'approved', txid);
     
-    return tx;
+    return txid;
   } catch (error) {
     console.error('Error in approveMessagePayment:', error);
     
@@ -525,7 +544,10 @@ export const approveMessagePayment = async (
       const errorMessage = error.message;
       console.error('Error details:', errorMessage);
       
-      if (errorMessage.includes('ConstraintSeeds')) {
+      if (errorMessage.includes('ConstraintMut') || errorMessage.includes('mut constraint was violated')) {
+        console.error('Mut constraint error from Anchor program. This usually means an account that needs to be writable was not marked as such.');
+        throw new Error('Transaction failed: A technical issue occurred with account permissions. Please try again.');
+      } else if (errorMessage.includes('ConstraintSeeds')) {
         console.error('Seeds constraint error from Anchor program.');
         throw new Error('Transaction failed due to a technical issue with the escrow account. Please try again.');
       } else if (errorMessage.includes('Non-base58 character')) {
@@ -630,29 +652,48 @@ export const rejectMessagePayment = async (
     console.log('Escrow PDA derived successfully:', escrowPDA.toBase58());
     console.log('PDA bump:', bump);
     
-    // Prepare transaction accounts
-    const accounts = {
-      sender: senderPublicKey,
-      recipient: wallet.publicKey,
-      messageEscrow: escrowPDA,
-      systemProgram: SystemProgram.programId,
-    };
+    // Get the Anchor provider and connection
+    const provider = getProvider(wallet);
+    const connection = provider.connection;
     
-    console.log('Transaction accounts:', accounts);
+    // Create a transaction instruction with proper account metadata
+    const ix = await program.methods
+      .rejectMessagePayment()
+      .accounts({
+        sender: senderPublicKey,
+        recipient: wallet.publicKey,
+        messageEscrow: escrowPDA,
+        systemProgram: SystemProgram.programId,
+      })
+      .instruction();
+    
+    // Create transaction and add the instruction
+    const tx = new Transaction();
+    tx.add(ix);
+    
+    // Explicitly mark the sender account as writable in the transaction
+    // Find the sender account in the instruction accounts
+    const senderAccountMeta = tx.instructions[0].keys.find(
+      (key) => key.pubkey.equals(senderPublicKey)
+    );
+    
+    if (senderAccountMeta) {
+      console.log('Found sender account in transaction, marking as writable');
+      senderAccountMeta.isWritable = true;
+    } else {
+      console.error('Could not find sender account in transaction keys');
+    }
     
     // Submit the transaction
     console.log('Submitting rejectMessagePayment transaction...');
-    const tx = await program.methods
-      .rejectMessagePayment()
-      .accounts(accounts)
-      .rpc();
+    const txid = await provider.sendAndConfirm(tx);
     
-    console.log('Rejection transaction successful:', tx);
+    console.log('Rejection transaction successful:', txid);
     
     // Update message status in Supabase
-    await updateMessageStatus(messageId, 'rejected', tx);
+    await updateMessageStatus(messageId, 'rejected', txid);
     
-    return tx;
+    return txid;
   } catch (error) {
     console.error('Error in rejectMessagePayment:', error);
     
@@ -661,7 +702,10 @@ export const rejectMessagePayment = async (
       const errorMessage = error.message;
       console.error('Error details:', errorMessage);
       
-      if (errorMessage.includes('ConstraintSeeds')) {
+      if (errorMessage.includes('ConstraintMut') || errorMessage.includes('mut constraint was violated')) {
+        console.error('Mut constraint error from Anchor program. This usually means an account that needs to be writable was not marked as such.');
+        throw new Error('Transaction failed: A technical issue occurred with account permissions. Please try again.');
+      } else if (errorMessage.includes('ConstraintSeeds')) {
         console.error('Seeds constraint error from Anchor program.');
         throw new Error('Transaction failed due to a technical issue with the escrow account. Please try again.');
       } else if (errorMessage.includes('Non-base58 character')) {
