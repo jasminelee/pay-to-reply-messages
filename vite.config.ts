@@ -27,5 +27,7 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => ({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
+    assetsInlineLimit: 0, // Prevent inlining assets
   },
+  base: '/', // Ensure assets are served from the root path
 }));

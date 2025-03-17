@@ -1,3 +1,4 @@
+
 import { ReactNode, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
@@ -26,6 +27,21 @@ const Layout = ({ children, requireAuth = false }: LayoutProps) => {
       navigate('/auth', { state: { from: location } });
     }
   }, [user, isLoading, requireAuth, navigate, location]);
+
+  // Detect if running in Lovable preview environment
+  const isLovablePreview = () => {
+    return window.location.hostname.includes('lovable.app') || 
+           window.location.hostname.includes('squeaky-wheel.lovable.app');
+  };
+
+  // Log environment information for debugging
+  useEffect(() => {
+    console.log("Layout environment check:", {
+      hostname: window.location.hostname,
+      isLovablePreview: isLovablePreview(),
+      origin: window.location.origin
+    });
+  }, []);
 
   // Show loading state when checking authentication
   if (isLoading && requireAuth) {
