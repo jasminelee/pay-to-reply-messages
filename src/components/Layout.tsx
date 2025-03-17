@@ -1,4 +1,3 @@
-
 import { ReactNode, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
@@ -22,6 +21,8 @@ const Layout = ({ children, requireAuth = false }: LayoutProps) => {
   // Protect routes that require authentication
   useEffect(() => {
     if (!isLoading && requireAuth && !user) {
+      // Store the current URL for redirect after authentication
+      localStorage.setItem('auth_redirect_before', window.location.href);
       navigate('/auth', { state: { from: location } });
     }
   }, [user, isLoading, requireAuth, navigate, location]);

@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, checkSupabaseConnection, checkTwitterAuthConfig } from '@/integrations/supabase/client';
@@ -160,7 +159,25 @@ const Auth = () => {
   }, [navigate]);
 
   const handleProfileComplete = () => {
-    // After profile setup is complete, redirect to dashboard
+    // Check if there's a stored redirect URL from before authentication
+    const redirectUrl = localStorage.getItem('auth_redirect_before');
+    
+    // If there's a stored URL and it's not the auth page itself, redirect there
+    if (redirectUrl && !redirectUrl.includes('/auth')) {
+      // Clear the stored URL
+      localStorage.removeItem('auth_redirect_before');
+      
+      // Extract just the path from the full URL to avoid cross-origin issues
+      try {
+        const urlObj = new URL(redirectUrl);
+        navigate(urlObj.pathname + urlObj.search);
+        return;
+      } catch (e) {
+        console.error("Invalid redirect URL:", e);
+      }
+    }
+    
+    // Default fallback: redirect to dashboard
     navigate('/dashboard');
   };
 

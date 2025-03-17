@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useWallet } from '@/contexts/WalletContext';
@@ -27,6 +26,23 @@ const ProfileManager = ({ onComplete, compact = false }: ProfileManagerProps) =>
       setHasAssociatedWallet(false);
     }
   }, [profile]);
+
+  // Automatically trigger completion when both accounts are connected
+  useEffect(() => {
+    // Check if both Twitter and wallet are connected
+    const isTwitterConnected = Boolean(profile?.twitter_username);
+    const isWalletConnected = hasAssociatedWallet;
+    
+    // If both are connected and we have an onComplete callback, call it
+    if (isTwitterConnected && isWalletConnected && onComplete) {
+      // Small delay to allow UI to update and show the connected status
+      const timer = setTimeout(() => {
+        onComplete();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [profile, hasAssociatedWallet, onComplete]);
 
   const handleSaveWalletConnection = async () => {
     if (!user || !walletAddress) return;
