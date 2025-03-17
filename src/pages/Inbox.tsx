@@ -1,6 +1,5 @@
-
 import { useState, useEffect, useCallback } from 'react';
-import { Filter, Search, RefreshCw, Database, Key, AlertTriangle } from 'lucide-react';
+import { Filter, Search, RefreshCw, Database, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,7 +15,6 @@ import MessageCard from '@/components/MessageCard';
 import { useWallet } from '@/contexts/WalletContext';
 import { useToast } from '@/components/ui/use-toast';
 import { fetchMessages, MessageData, fixDatabaseIssues, fixMessageIds } from '@/utils/messageService';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const statusOptions = [
   { value: 'all', label: 'All' },
@@ -48,17 +46,12 @@ const Inbox = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
   const [isFixingMessageIds, setIsFixingMessageIds] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
   
   // Load messages from Supabase
   const loadMessages = useCallback(async () => {
-    if (!isConnected || !walletAddress) {
-      setLoadError("Wallet not connected. Please connect your wallet to view messages.");
-      return;
-    }
+    if (!isConnected || !walletAddress) return;
     
     setIsLoading(true);
-    setLoadError(null);
     try {
       console.log('Loading messages for wallet:', walletAddress);
       const [received, sent] = await Promise.all([
@@ -69,14 +62,8 @@ const Inbox = () => {
       setReceivedMessages(received);
       setSentMessages(sent);
       console.log(`Loaded ${received.length} received and ${sent.length} sent messages`);
-      
-      // If no messages were found, display a meaningful message
-      if (received.length === 0 && sent.length === 0) {
-        setLoadError("No messages found for this wallet address.");
-      }
     } catch (error) {
       console.error('Error loading messages:', error);
-      setLoadError("Failed to load messages. Please try again or check console for details.");
       toast({
         title: "Error loading messages",
         description: "There was a problem loading your messages. Please try again.",
@@ -206,34 +193,11 @@ const Inbox = () => {
     loadMessages();
   };
 
-  // Debug function to show wallet address
-  const showWalletInfo = () => {
-    toast({
-      title: "Wallet Information",
-      description: `Connected: ${isConnected ? 'Yes' : 'No'}\nWallet Address: ${walletAddress || 'None'}`,
-    });
-    console.log("Wallet info:", { isConnected, walletAddress });
-  };
-
   return (
     <Layout>
       <div className="flex flex-col space-y-8 animate-fade-in">
         <div className="flex flex-col space-y-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold tracking-tight">Message Inbox</h1>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={showWalletInfo}>
-                    <Wallet className="h-5 w-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Show wallet info</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+          <h1 className="text-3xl font-bold tracking-tight">Message Inbox</h1>
           <p className="text-muted-foreground">
             Manage your direct messages with payments
           </p>
@@ -247,62 +211,38 @@ const Inbox = () => {
                 <TabsTrigger value="sent" className="px-4">Sent</TabsTrigger>
               </TabsList>
               
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      onClick={handleRefresh} 
-                      disabled={isRefreshing || isLoading}
-                      className="h-10 w-10"
-                    >
-                      <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Refresh Messages</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={handleRefresh} 
+                disabled={isRefreshing || isLoading}
+                className="h-10 w-10"
+                title="Refresh Messages"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </Button>
               
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      onClick={handleFixDatabase} 
-                      disabled={isFixing}
-                      className="h-10 w-10"
-                    >
-                      <Database className={`h-4 w-4 ${isFixing ? 'animate-pulse' : ''}`} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Fix Database Issues</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={handleFixDatabase} 
+                disabled={isFixing}
+                className="h-10 w-10"
+                title="Fix Database Issues"
+              >
+                <Database className={`h-4 w-4 ${isFixing ? 'animate-pulse' : ''}`} />
+              </Button>
               
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      onClick={handleFixMessageIds} 
-                      disabled={isFixingMessageIds}
-                      className="h-10 w-10"
-                    >
-                      <Key className={`h-4 w-4 ${isFixingMessageIds ? 'animate-pulse' : ''}`} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Fix Message IDs</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={handleFixMessageIds} 
+                disabled={isFixingMessageIds}
+                className="h-10 w-10"
+                title="Fix Message IDs"
+              >
+                <Key className={`h-4 w-4 ${isFixingMessageIds ? 'animate-pulse' : ''}`} />
+              </Button>
             </div>
             
             <div className="flex flex-col sm:flex-row gap-2">
@@ -350,16 +290,6 @@ const Inbox = () => {
               <div className="glass-panel rounded-lg p-8 text-center">
                 <p className="text-muted-foreground animate-pulse">Loading messages...</p>
               </div>
-            ) : loadError ? (
-              <div className="glass-panel rounded-lg p-8 text-center">
-                <div className="flex flex-col items-center justify-center gap-4">
-                  <AlertTriangle className="h-10 w-10 text-amber-500" />
-                  <p className="text-muted-foreground">{loadError}</p>
-                  <Button variant="outline" onClick={handleRefresh} className="mt-2">
-                    Try Again
-                  </Button>
-                </div>
-              </div>
             ) : filteredMessages.length === 0 ? (
               <div className="glass-panel rounded-lg p-8 text-center">
                 <p className="text-muted-foreground">No messages found.</p>
@@ -387,16 +317,6 @@ const Inbox = () => {
             {isLoading ? (
               <div className="glass-panel rounded-lg p-8 text-center">
                 <p className="text-muted-foreground animate-pulse">Loading messages...</p>
-              </div>
-            ) : loadError ? (
-              <div className="glass-panel rounded-lg p-8 text-center">
-                <div className="flex flex-col items-center justify-center gap-4">
-                  <AlertTriangle className="h-10 w-10 text-amber-500" />
-                  <p className="text-muted-foreground">{loadError}</p>
-                  <Button variant="outline" onClick={handleRefresh} className="mt-2">
-                    Try Again
-                  </Button>
-                </div>
               </div>
             ) : filteredMessages.length === 0 ? (
               <div className="glass-panel rounded-lg p-8 text-center">

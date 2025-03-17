@@ -83,21 +83,6 @@ export const fetchMessages = async (
     
     console.log('Found profile:', profile);
     
-    // Debug: Let's query for all messages in the database to see what's available
-    const { data: allMessages, error: allMessagesError } = await supabase
-      .from('messages')
-      .select('*')
-      .limit(100);
-    
-    if (allMessagesError) {
-      console.error('Error fetching all messages:', allMessagesError);
-    } else {
-      console.log(`Total messages in database: ${allMessages?.length || 0}`);
-      if (allMessages && allMessages.length > 0) {
-        console.log('Sample message:', allMessages[0]);
-      }
-    }
-    
     // Build the query based on the type
     let query = supabase
       .from('messages')
@@ -127,12 +112,9 @@ export const fetchMessages = async (
     }
     
     console.log(`Found ${messages?.length || 0} messages`);
-    if (messages && messages.length > 0) {
-      console.log('First message details:', JSON.stringify(messages[0], null, 2));
-    }
     
     // Format the messages
-    const formattedMessages: MessageData[] = messages?.map(msg => ({
+    const formattedMessages: MessageData[] = messages.map(msg => ({
       id: msg.id,
       sender_id: msg.sender_id,
       recipient_id: msg.recipient_id,
@@ -146,7 +128,7 @@ export const fetchMessages = async (
       senderDisplayName: msg.sender?.username || 'Unknown User',
       senderAvatarUrl: msg.sender?.avatar_url || '',
       recipientUsername: msg.recipient?.username || 'Unknown User',
-    })) || [];
+    }));
     
     return formattedMessages;
   } catch (error) {
@@ -423,20 +405,6 @@ export const saveMessage = async (
     }
 
     console.log('Message saved successfully with ID:', messageId);
-    
-    // Debug: Let's verify the message was saved
-    const { data: savedMessage, error: verifyError } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('message_id', messageId)
-      .single();
-      
-    if (verifyError) {
-      console.error('Error verifying saved message:', verifyError);
-    } else {
-      console.log('Verified saved message:', savedMessage);
-    }
-    
     return true;
   } catch (error) {
     console.error('Error in saveMessage:', error);
