@@ -90,8 +90,8 @@ export const fetchMessages = async (
         content, 
         status, 
         transaction_signature,
-        sender:profiles!sender_id(id, username, avatar_url),
-        recipient:profiles!recipient_id(id, username, avatar_url)
+        sender:profiles!fk_sender_profile(id, username, avatar_url),
+        recipient:profiles!fk_recipient_profile(id, username, avatar_url)
       `);
     
     if (type === 'received') {
