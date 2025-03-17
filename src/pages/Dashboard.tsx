@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Clock, MessageSquare, Repeat, Wallet, Zap, Shield, ChevronRight } from 'lucide-react';
@@ -39,6 +38,14 @@ const Dashboard = () => {
   });
   
   const [pendingTransactions, setPendingTransactions] = useState(0);
+  
+  // Helper function to truncate wallet address for display
+  const truncateAddress = (address: string) => {
+    if (!address) return '';
+    return address.length > 12 ? 
+      `${address.slice(0, 6)}...${address.slice(-4)}` : 
+      address;
+  };
   
   // Fetch messages and stats when wallet is connected
   useEffect(() => {
@@ -287,7 +294,7 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Address</p>
-                    <p className="text-xs text-muted-foreground font-mono">{isConnected ? walletAddress : "Not connected"}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{isConnected ? truncateAddress(walletAddress) : "Not connected"}</p>
                   </div>
                   <div className={`h-3 w-3 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_10px_rgba(74,222,128,0.5)]' : 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]'}`} />
                 </div>
