@@ -49,6 +49,12 @@ const MessageCard: React.FC<MessageCardProps> = ({
   const isSender = isConnected && walletAddress && message.sender_id 
     ? message.sender_id.toLowerCase() === walletAddress.toLowerCase() 
     : false;
+
+  // For debugging
+  console.log('Message status:', message.status);
+  console.log('Is recipient:', isRecipient);
+  console.log('Recipient ID:', message.recipient_id);
+  console.log('Wallet address:', walletAddress);
   
   const handleApprove = async () => {
     try {
