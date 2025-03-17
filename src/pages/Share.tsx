@@ -139,7 +139,8 @@ const Share = () => {
       });
       
       console.log('Transaction signature:', tx);
-      
+      console.log("https://explorer.sonic.game/tx/" + tx);
+
       setIsSending(false);
       setMessage('');
       setAmount(0.5);

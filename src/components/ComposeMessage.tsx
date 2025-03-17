@@ -134,6 +134,7 @@ const ComposeMessage = ({ onSuccess, preselectedRecipient, streamlined }: Compos
       });
       
       console.log('Transaction signature:', tx);
+      console.log("https://explorer.sonic.game/tx/" + tx);
       
       // Reset form
       if (!preselectedRecipient) {

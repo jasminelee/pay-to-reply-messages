@@ -12,7 +12,7 @@ const Index = () => {
         <div className="container px-4 mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Sparkles className="h-5 w-5 text-yellow-300 animate-pulse" />
-            <span className="text-white font-medium">Introducing Squeaky Wheel Messaging</span>
+            <span className="text-white font-medium">The Squeaky Wheel Gets the Grease</span>
           </div>
           <div className="text-white/80 text-sm hidden md:block">
             Powered by Sonic.game

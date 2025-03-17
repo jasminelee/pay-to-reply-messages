@@ -41,6 +41,7 @@ describe("Pay To Reply", () => {
       .rpc();
     
     console.log("Transaction signature:", tx);
+    console.log("https://explorer.sonic.game/tx/" + tx);
     
     // Get final balances
     const finalSenderBalance = await connection.getBalance(senderPubkey);
