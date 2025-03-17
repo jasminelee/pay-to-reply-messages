@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Moon, Sun } from 'lucide-react';
@@ -42,6 +41,9 @@ const Navbar = () => {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
                   <Link to="/dashboard">Dashboard</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/inbox">Inbox</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to={`/share/${profile?.twitter_username}`}>Share Page</Link>
