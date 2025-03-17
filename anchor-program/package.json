@@ -1,5 +1,6 @@
+
 {
-  "name": "pay-to-reply",
+  "name": "squeaky-wheel",
   "version": "0.1.0",
   "description": "Program to send SOL payments when sending messages on Sonic DevNet",
   "main": "app/send-payment.ts",

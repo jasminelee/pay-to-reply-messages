@@ -12,7 +12,7 @@ const Index = () => {
         <div className="container px-4 mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Sparkles className="h-5 w-5 text-yellow-300 animate-pulse" />
-            <span className="text-white font-medium">Introducing Pay-to-Reply Messaging</span>
+            <span className="text-white font-medium">Introducing Squeaky Wheel Messaging</span>
           </div>
           <div className="text-white/80 text-sm hidden md:block">
             Powered by Sonic.game
@@ -31,7 +31,7 @@ const Index = () => {
               </div>
             </div>
             <h1 className="text-3xl md:text-5xl font-bold tracking-tighter animate-slide-up web3-gradient-text">
-              Pay-to-Reply Messaging
+              Squeaky Wheel Messaging
             </h1>
             <p className="max-w-[700px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed animate-slide-up" style={{animationDelay: '100ms'}}>
               Send direct messages backed by cryptocurrency. Recipients have full control to approve or reject messages.

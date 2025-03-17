@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Moon, Sun } from 'lucide-react';
@@ -21,7 +22,7 @@ const Navbar = () => {
     <div className="shadow-sm bg-black/40 backdrop-blur-md sticky top-0 z-50 border-b border-white/5">
       <div className="container h-16 mx-auto py-4 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <Link to="/" className="flex items-center space-x-2">
-          <span className="font-bold text-xl web3-gradient-text">PayToReply</span>
+          <span className="font-bold text-xl web3-gradient-text">Squeaky Wheel</span>
         </Link>
         <div className="flex items-center space-x-4">
           <WalletConnect />

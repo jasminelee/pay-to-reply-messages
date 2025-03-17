@@ -1,4 +1,5 @@
-# Pay-to-Reply Anchor Program
+
+# Squeaky Wheel Anchor Program
 
 This Anchor program enables sending SOL payments on the Sonic DevNet. It's designed to be integrated with a messaging system where users can pay to send messages.
 
